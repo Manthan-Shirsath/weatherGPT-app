@@ -113,7 +113,7 @@ function MarkdownRenderer({ content }: { content: string }) {
         renderedElements.push(
           <div key={`table-${renderedElements.length}`} className="my-3 overflow-x-auto rounded-lg border border-sky-border/40 bg-sky-card/50">
             <table className="w-full text-left text-sm text-sky-text-primary">
-              <thead className="bg-sky-background/50 text-xs uppercase bg-sky-ai/5 border-b border-sky-border/40">
+              <thead className="text-xs uppercase bg-sky-ai/5 border-b border-sky-border/40">
                 <tr>
                   {headers.map((h, i) => (
                     <th key={i} className="px-4 py-2 font-medium">{renderInlineMarkdown(h)}</th>
