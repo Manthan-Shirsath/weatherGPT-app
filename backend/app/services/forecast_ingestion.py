@@ -109,9 +109,142 @@ class ForecastIngestionService:
         logger.info("⚡ [ForecastIngestion] Running on-demand multi-model ingestion for %s (%.4f, %.4f)...", loc_clean, lat, lon)
         tasks = [self._fetch_and_store(p, loc_dict) for p in operational_providers]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        return any(r is True for r in results)
+        return any(isinstance(r, tuple) and r[0] is True for r in results)
 
-    async def _fetch_and_store(self, provider: ForecastProvider, loc: dict) -> bool:
+    async def ingest_location_and_build(self, loc_name: str, lat: float = None, lon: float = None) -> dict:
+        """
+        On-demand multi-model forecast ingestion for a single location,
+        returning the complete structured forecast intelligence payload and caching it.
+        """
+        from types import SimpleNamespace
+        from backend.app.services.forecast_analytics import ForecastAnalytics
+        from backend.app.core.cache import cache
+
+        loc_clean = loc_name.strip()
+        if lat is None or lon is None:
+            match = next((loc for loc in INGESTION_LOCATIONS if loc["name"].lower() == loc_clean.lower()), None)
+            if match:
+                lat = match["lat"]
+                lon = match["lon"]
+                loc_clean = match["name"]
+            else:
+                from backend.app.services.providers.open_meteo import open_meteo_provider
+                try:
+                    geo = await open_meteo_provider.geocode_city(loc_clean)
+                    if geo and "lat" in geo and "lon" in geo:
+                        lat = geo["lat"]
+                        lon = geo["lon"]
+                        loc_clean = geo.get("name", loc_clean)
+                    else:
+                        logger.warning("⚠️ [ForecastIngestion] Geocoding failed for '%s'.", loc_name)
+                        return {"location": loc_clean, "horizon_days": 7, "models": [], "analytics": {}}
+                except Exception as exc:
+                    logger.warning("⚠️ [ForecastIngestion] Geocode error for '%s': %s", loc_name, exc)
+                    return {"location": loc_clean, "horizon_days": 7, "models": [], "analytics": {}}
+
+        loc_dict = {"name": loc_clean, "lat": lat, "lon": lon}
+        operational_providers = [
+            p for p in self.providers 
+            if MODEL_REGISTRY.get(p.model_id, {}).get("availability") == "operational"
+        ]
+        
+        logger.info("⚡ [ForecastIngestion] Running on-demand multi-model ingestion for %s (%.4f, %.4f)...", loc_clean, lat, lon)
+        fetch_results = await asyncio.gather(*[self._fetch_and_store(p, loc_dict) for p in operational_providers], return_exceptions=True)
+        
+        runs_map = {}
+        for res in fetch_results:
+            if isinstance(res, tuple) and res[0] and res[1]:
+                item = res[1]
+                runs_map[item["model_id"]] = item
+
+        response_models = []
+        analytic_runs = []
+        now = datetime.datetime.now(datetime.timezone.utc)
+
+        for model_id, meta in MODEL_REGISTRY.items():
+            if meta.get("availability") != "operational":
+                continue
+                
+            run_data = runs_map.get(model_id)
+            if not run_data:
+                response_models.append({
+                    "id": meta["id"],
+                    "name": meta["name"],
+                    "methodology": meta.get("methodology"),
+                    "forecast_type": meta.get("forecast_type"),
+                    "how_it_forecasts": meta.get("how_it_forecasts"),
+                    "status": "unavailable",
+                    "forecast": []
+                })
+                continue
+
+            vals_norm = run_data["values"]
+            run_time = run_data["run_time"]
+            fetched_at = run_data["fetched_at"]
+            age_minutes = int((now - fetched_at).total_seconds() / 60)
+            is_stale = age_minutes > (meta.get("update_cadence_hours", 6) * 60 + 120)
+
+            formatted_forecast = [
+                {
+                    "valid_time": v["valid_time"].isoformat() if isinstance(v["valid_time"], datetime.datetime) else str(v["valid_time"]),
+                    "lead_hours": v["lead_hours"],
+                    "variable": v["variable"],
+                    "representation": v.get("representation", "deterministic"),
+                    "value": v["value"],
+                    "unit": v["unit"]
+                }
+                for v in vals_norm
+            ]
+
+            response_models.append({
+                "id": meta["id"],
+                "name": meta["name"],
+                "methodology": meta.get("methodology"),
+                "forecast_type": meta.get("forecast_type"),
+                "how_it_forecasts": meta.get("how_it_forecasts"),
+                "run_time": run_time.isoformat(),
+                "fetched_at": fetched_at.isoformat(),
+                "age_minutes": age_minutes,
+                "status": "stale" if is_stale else "fresh",
+                "forecast": formatted_forecast
+            })
+
+            # Create lightweight run object for ForecastAnalytics
+            analytic_vals = [
+                SimpleNamespace(
+                    valid_time=v["valid_time"] if isinstance(v["valid_time"], datetime.datetime) else datetime.datetime.fromisoformat(str(v["valid_time"])),
+                    lead_hours=v["lead_hours"],
+                    variable=v["variable"],
+                    value=v["value"],
+                    unit=v["unit"],
+                    representation=v.get("representation", "deterministic")
+                )
+                for v in vals_norm
+            ]
+            analytic_runs.append(SimpleNamespace(
+                model_id=model_id,
+                location_name=loc_clean,
+                run_time=run_time,
+                fetched_at=fetched_at,
+                values=analytic_vals
+            ))
+
+        analytics_data = {}
+        if analytic_runs:
+            analytics_data = ForecastAnalytics.analyze(analytic_runs)
+
+        payload = {
+            "location": loc_clean,
+            "horizon_days": 7,
+            "models": response_models,
+            "analytics": analytics_data
+        }
+
+        # Cache for 2 hours (7200s)
+        await cache.set(f"forecast_intelligence:{loc_clean.lower()}", payload, ttl=7200)
+        return payload
+
+    async def _fetch_and_store(self, provider: ForecastProvider, loc: dict) -> tuple:
         loc_name = loc["name"]
         model_id = provider.model_id
         
@@ -120,28 +253,38 @@ class ForecastIngestionService:
         except Exception as e:
             logger.error("❌ [ForecastIngestion] %s failed to fetch for %s: %s", model_id, loc_name, e)
             await self._record_failure(model_id, loc_name, str(e))
-            return False
+            return False, None
 
         try:
             normalized_data = provider.normalize(raw_data, loc_name)
             if not normalized_data:
                 logger.warning("⚠️ [ForecastIngestion] %s returned no data for %s", model_id, loc_name)
-                return False
+                return False, None
                 
-            # Use the valid_time of the first item as an approximation of the run_time if not provided explicitly by API
-            # We truncate to nearest 6 hours for run_time stability.
             first_dt = normalized_data[0]["valid_time"]
             run_time = first_dt.replace(hour=(first_dt.hour // 6) * 6, minute=0, second=0, microsecond=0)
+            now = datetime.datetime.now(datetime.timezone.utc)
             
             await self._persist_forecast(model_id, loc_name, run_time, normalized_data)
-            logger.info("✓ [ForecastIngestion] %s for %s persisted (%d values)", model_id, loc_name, len(normalized_data))
-            return True
+            logger.info("✓ [ForecastIngestion] %s for %s processed (%d values)", model_id, loc_name, len(normalized_data))
+            return True, {
+                "model_id": model_id,
+                "location_name": loc_name,
+                "run_time": run_time,
+                "fetched_at": now,
+                "values": normalized_data
+            }
         except Exception as e:
             logger.error("❌ [ForecastIngestion] %s failed to process for %s: %s", model_id, loc_name, e)
             await self._record_failure(model_id, loc_name, str(e))
-            return False
+            return False, None
 
     async def _persist_forecast(self, model_id: str, loc_name: str, run_time: datetime.datetime, values: list):
+        from backend.app.core.database import is_db_available
+        if not is_db_available():
+            logger.debug("ℹ️ [ForecastIngestion] Database offline, skipping SQL persist for %s %s", model_id, loc_name)
+            return
+
         async with async_session_factory() as session:
             try:
                 # 1. Check if ForecastRun already exists (idempotency)
@@ -193,11 +336,13 @@ class ForecastIngestionService:
                 logger.warning("⚠️ [ForecastIngestion] Integrity error (duplicate?) for %s %s: %s", model_id, loc_name, str(e.__cause__))
             except Exception as e:
                 await session.rollback()
-                raise e
+                logger.warning("⚠️ [ForecastIngestion] Database persistence failed for %s %s: %s", model_id, loc_name, e)
 
     async def _record_failure(self, model_id: str, loc_name: str, error_msg: str):
-        # We can record the failure in the DB as a ForecastRun with status="failed" 
-        # to ensure we don't infinitely retry immediately, and have observability.
+        from backend.app.core.database import is_db_available
+        if not is_db_available():
+            return
+
         run_time = datetime.datetime.now(datetime.timezone.utc)
         run_time = run_time.replace(minute=0, second=0, microsecond=0)
         

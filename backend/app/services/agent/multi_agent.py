@@ -68,12 +68,22 @@ def get_agents(model: str = None, dynamic_instruction: str = None) -> Agent:
         "analyze_rain"
     ]
     
+    is_local_model = model and ("gemma" in model.lower() or "ovserve" in model.lower())
+    
     # Initialize the specific tools
-    weather_tools = ToolExecutor.get_openai_tools(weather_tool_names)
-    ag_tools = ToolExecutor.get_openai_tools(ag_tool_names)
-    climate_tools = ToolExecutor.get_openai_tools(climate_tool_names)
-    aviation_tools = ToolExecutor.get_openai_tools(aviation_tool_names)
-    marine_tools = ToolExecutor.get_openai_tools(marine_tool_names)
+    if is_local_model:
+        # Local model gets overwhelmed by 13 tools, causing bad JSON schemas and missing params
+        weather_tools = ToolExecutor.get_openai_tools(["get_forecast", "compare_models"])
+        ag_tools = ToolExecutor.get_openai_tools(["get_agriculture_advice"])
+        climate_tools = ToolExecutor.get_openai_tools(["get_historical_weather"])
+        aviation_tools = ToolExecutor.get_openai_tools(["get_aviation_reports"])
+        marine_tools = ToolExecutor.get_openai_tools(["get_marine_forecast"])
+    else:
+        weather_tools = ToolExecutor.get_openai_tools(weather_tool_names)
+        ag_tools = ToolExecutor.get_openai_tools(ag_tool_names)
+        climate_tools = ToolExecutor.get_openai_tools(climate_tool_names)
+        aviation_tools = ToolExecutor.get_openai_tools(aviation_tool_names)
+        marine_tools = ToolExecutor.get_openai_tools(marine_tool_names)
     
     dynamic_suffix = f"\n\n{dynamic_instruction}" if dynamic_instruction else ""
     

@@ -42,8 +42,8 @@ COPY . /app/backend
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8000}/docs || curl -f http://localhost:8000/docs || curl -f http://localhost:10000/docs || exit 1
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/docs || exit 1
 
 # Start FastAPI server directly with exec for immediate SIGTERM/SIGINT signal handling
 CMD ["sh", "-c", "exec uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

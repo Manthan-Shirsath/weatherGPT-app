@@ -74,6 +74,11 @@ class LLMKeyRotator:
                 os.getenv("SARVAM_API_KEY_FALLBACK"),
                 os.getenv("SARVAM_API_KEY_2"),
             ]
+        elif self.provider in ["ovserve", "local"]:
+            candidates = [
+                os.getenv("OVSERVE_API_KEY"),
+                os.getenv("OPENAI_API_KEY"),
+            ]
         else:
             candidates = [
                 os.getenv(f"{self.provider.upper()}_API_KEY"),
@@ -157,6 +162,7 @@ class LLMKeyRotator:
 groq_rotator = LLMKeyRotator("groq")
 gemini_rotator = LLMKeyRotator("gemini")
 sarvam_rotator = LLMKeyRotator("sarvam")
+ovserve_rotator = LLMKeyRotator("ovserve")
 
 def get_rotator_for_provider(provider: str) -> LLMKeyRotator:
     p = (provider or "groq").lower().strip()
@@ -164,4 +170,6 @@ def get_rotator_for_provider(provider: str) -> LLMKeyRotator:
         return gemini_rotator
     if p == "sarvam":
         return sarvam_rotator
+    if p in ["ovserve", "local"]:
+        return ovserve_rotator
     return groq_rotator

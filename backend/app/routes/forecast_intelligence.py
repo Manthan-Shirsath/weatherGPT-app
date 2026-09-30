@@ -41,22 +41,40 @@ async def _fetch_runs_for_location(location: str, db: AsyncSession) -> Dict[str,
 async def get_forecast_intelligence(location: str, db: AsyncSession = Depends(get_db_session)) -> Dict[str, Any]:
     """
     Retrieve the latest Multi-Model Forecast Data for a specific location.
-    If no data exists in PostgreSQL, automatically triggers on-demand ingestion.
+    Checks cache -> PostgreSQL -> On-Demand Multi-Model Ingestion.
     """
+    from backend.app.core.cache import cache
+    from backend.app.core.database import is_db_available
+    from backend.app.services.forecast_ingestion import forecast_ingestion_service
     from backend.app.services.forecast_analytics import ForecastAnalytics
     
-    runs_map = await _fetch_runs_for_location(location, db)
+    loc_clean = location.strip()
+    cache_key = f"forecast_intelligence:{loc_clean.lower()}"
     
-    # On-demand ingestion fallback if any operational model is missing from DB for this location
+    # 1. Fast cache check (Redis or In-Memory TTL)
+    cached = await cache.get(cache_key)
+    if cached and cached.get("models"):
+        has_active = any(m.get("status") != "unavailable" and len(m.get("forecast", [])) > 0 for m in cached.get("models", []))
+        if has_active:
+            return cached
+            
+    # 2. Check DB if database is connected
+    runs_map = {}
+    if is_db_available():
+        runs_map = await _fetch_runs_for_location(loc_clean, db)
+        
     operational_models = [m for m, meta in MODEL_REGISTRY.items() if meta.get("availability") == "operational"]
     missing_models = [m for m in operational_models if m not in runs_map]
     
-    if missing_models:
-        logger.info("ℹ️ Missing forecast models in DB for '%s' (%s). Ingesting on-demand...", location, missing_models)
-        from backend.app.services.forecast_ingestion import forecast_ingestion_service
-        await forecast_ingestion_service.ingest_location(location)
-        runs_map = await _fetch_runs_for_location(location, db)
-    
+    # 3. If any model is missing from DB (or DB is offline), run on-demand multi-model ingestion
+    if missing_models or not runs_map:
+        logger.info("ℹ️ Multi-model forecasts for '%s' missing from DB/cache. Ingesting on-demand...", loc_clean)
+        payload = await forecast_ingestion_service.ingest_location_and_build(loc_clean)
+        if payload and any(m.get("status") != "unavailable" for m in payload.get("models", [])):
+            await cache.set(cache_key, payload, ttl=7200)
+            return payload
+        
+    # 4. If runs were loaded from DB, format response and cache
     response_models = []
     valid_runs = []
     
@@ -65,7 +83,6 @@ async def get_forecast_intelligence(location: str, db: AsyncSession = Depends(ge
             continue
             
         run = runs_map.get(model_id)
-        
         if not run:
             response_models.append({
                 "id": meta["id"],
@@ -79,18 +96,14 @@ async def get_forecast_intelligence(location: str, db: AsyncSession = Depends(ge
             continue
             
         valid_runs.append(run)
-        
-        # Calculate freshness
         now = datetime.datetime.now(datetime.timezone.utc)
         age_minutes = int((now - run.fetched_at).total_seconds() / 60)
-        
         is_stale = age_minutes > (meta.get("update_cadence_hours", 6) * 60 + 120) 
         
-        # Format forecast values
         formatted_forecast = []
         for val in run.values:
             formatted_forecast.append({
-                "valid_time": val.valid_time.isoformat(),
+                "valid_time": val.valid_time.isoformat() if hasattr(val.valid_time, "isoformat") else str(val.valid_time),
                 "lead_hours": val.lead_hours,
                 "variable": val.variable,
                 "representation": getattr(val, "representation", "deterministic"),
@@ -104,24 +117,25 @@ async def get_forecast_intelligence(location: str, db: AsyncSession = Depends(ge
             "methodology": meta.get("methodology"),
             "forecast_type": meta.get("forecast_type"),
             "how_it_forecasts": meta.get("how_it_forecasts"),
-            "run_time": run.run_time.isoformat(),
-            "fetched_at": run.fetched_at.isoformat(),
+            "run_time": run.run_time.isoformat() if hasattr(run.run_time, "isoformat") else str(run.run_time),
+            "fetched_at": run.fetched_at.isoformat() if hasattr(run.fetched_at, "isoformat") else str(run.fetched_at),
             "age_minutes": age_minutes,
             "status": "stale" if is_stale else "fresh",
             "forecast": formatted_forecast
         })
 
-    # Generate deterministic analytics
     analytics_data = {}
     if valid_runs:
         analytics_data = ForecastAnalytics.analyze(valid_runs)
 
-    return {
-        "location": location,
+    payload = {
+        "location": loc_clean,
         "horizon_days": 7,
         "models": response_models,
         "analytics": analytics_data
     }
+    await cache.set(cache_key, payload, ttl=7200)
+    return payload
 
 
 @router.get("/{location}/analysis")
@@ -129,23 +143,23 @@ async def get_forecast_ai_analysis(location: str, db: AsyncSession = Depends(get
     """
     Decoupled endpoint for AI analysis. Runs asynchronously from the main forecast data fetch.
     """
-    from backend.app.services.forecast_analytics import ForecastAnalytics
+    from backend.app.core.cache import cache
     from backend.app.services.forecast_ai_service import forecast_ai_service
     
-    runs_map = await _fetch_runs_for_location(location, db)
-    if not runs_map:
-        from backend.app.services.forecast_ingestion import forecast_ingestion_service
-        await forecast_ingestion_service.ingest_location(location)
-        runs_map = await _fetch_runs_for_location(location, db)
-            
-    valid_runs = list(runs_map.values())
-    if not valid_runs:
-        return {"analysis": "Insufficient data for analysis."}
+    loc_clean = location.strip()
+    ai_cache_key = f"forecast_intelligence_ai:{loc_clean.lower()}"
+    
+    cached = await cache.get(ai_cache_key)
+    if cached and cached.get("analysis"):
+        return cached
         
-    analytics_data = ForecastAnalytics.analyze(valid_runs)
-    
-    # Get cached or generated AI summary
-    summary = await forecast_ai_service.get_analysis(location, analytics_data)
-    
-    return {"analysis": summary}
+    data = await get_forecast_intelligence(loc_clean, db)
+    analytics_data = data.get("analytics", {})
+    if not analytics_data:
+        return {"analysis": "Multi-model data is currently being ingested for this location. Please check back in a few seconds."}
+        
+    summary = await forecast_ai_service.get_analysis(loc_clean, analytics_data)
+    res = {"analysis": summary}
+    await cache.set(ai_cache_key, res, ttl=3600)
+    return res
 

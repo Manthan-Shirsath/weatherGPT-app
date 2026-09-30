@@ -19,6 +19,7 @@ from backend.app.core.config import (
     TTL_RADAR_META
 )
 from backend.app.services.providers.base import BaseWeatherProvider
+from backend.app.services.providers.open_meteo import open_meteo_provider
 from backend.app.services.providers.open_weather_map import open_weather_map_provider
 from backend.app.services.providers.rainviewer import fetch_radar_maps_raw
 from backend.app.services.providers.imd_cap import imd_cap_provider
@@ -119,7 +120,7 @@ class WeatherDataHub:
     """
 
     def __init__(self, provider: Optional[BaseWeatherProvider] = None):
-        self.provider: BaseWeatherProvider = provider or open_weather_map_provider
+        self.provider: BaseWeatherProvider = provider or open_meteo_provider
 
     def set_provider(self, provider: BaseWeatherProvider):
         """Allows dynamic switching of the active upstream provider (Open-Meteo, IMD, GFS, WRF)."""
@@ -892,4 +893,4 @@ class WeatherDataHub:
 
 
 # Singleton Instance of Central Weather Data Hub
-weather_hub = WeatherDataHub(open_weather_map_provider)
+weather_hub = WeatherDataHub(open_meteo_provider)

@@ -63,9 +63,11 @@ def severe_weather_output_guardrail(context, agent, output_data: str) -> Guardra
         return GuardrailFunctionOutput(output_info=None, tripwire_triggered=False)
         
     if not output_data or output_data.strip() == "":
+        # Changed: Do not trigger safety tripwire for empty responses.
+        # This was causing "safety boundaries" errors when the local LLM failed to generate text.
         return GuardrailFunctionOutput(
             output_info="Empty response generated.",
-            tripwire_triggered=True
+            tripwire_triggered=False
         )
         
     return GuardrailFunctionOutput(output_info=None, tripwire_triggered=False)

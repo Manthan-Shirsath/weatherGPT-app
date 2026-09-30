@@ -4,10 +4,26 @@ from backend.app.services.climate_service import ClimateService
 
 router = APIRouter(prefix="/api/climate", tags=["climate"])
 
+@router.get("/intelligence")
+async def get_climate_intelligence(
+    city: str = Query("Pune", description="City name"),
+    range: str = Query("30d", description="Time range: '30d', '90d', '1y', '5y', '10y', 'custom'"),
+    start_date: Optional[str] = Query(None, description="Custom start date YYYY-MM-DD"),
+    end_date: Optional[str] = Query(None, description="Custom end date YYYY-MM-DD"),
+    compareWith: Optional[str] = Query(None, description="Secondary city for comparative climate analysis")
+):
+    return await ClimateService.get_climate_intelligence(
+        city=city,
+        range_str=range,
+        custom_start=start_date,
+        custom_end=end_date,
+        compare_city=compareWith
+    )
+
 @router.get("/summary")
 async def get_climate_summary(
     city: str = Query("Pune", description="City name"),
-    range: str = Query("12m", description="Time range: '24h', '7d', '30d', '12m'")
+    range: str = Query("30d", description="Time range: '30d', '90d', '1y', '5y', '10y'")
 ):
     return await ClimateService.get_summary(city=city, range_str=range)
 

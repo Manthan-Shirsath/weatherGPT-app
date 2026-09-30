@@ -56,4 +56,35 @@ async def get_weather_trends(
         compare_city=clean_compare
     )
 
+    if trends_data.get("status") == "insufficient_data" or not trends_data.get("observations"):
+        from backend.app.services.climate_service import ClimateService
+        intel = await ClimateService.get_climate_intelligence(clean_city, clean_range)
+        if intel.get("status") == "ready":
+            s = intel.get("summary", {})
+            obs = []
+            for ts in intel.get("timeseries", []):
+                obs.append({
+                    "timestamp": ts["date"] + "T12:00:00Z",
+                    "timeLabel": ts["date"],
+                    "temperature": ts["actualMeanTemp"],
+                    "precipitation": ts["actualRain"],
+                    "normalTemp": ts["baselineMeanTemp"],
+                    "condition": "Historical Record"
+                })
+            trends_data["status"] = "ready"
+            trends_data["count"] = len(obs)
+            trends_data["observations"] = obs
+            trends_data["temperature"] = {
+                "avg": s.get("actualMeanTemp"),
+                "min": s.get("lowTemp"),
+                "max": s.get("peakTemp"),
+                "baseline": s.get("baselineMeanTemp"),
+                "anomaly": s.get("tempAnomaly")
+            }
+            trends_data["rainfall"] = {
+                "total": s.get("actualRainTotal"),
+                "baseline": s.get("baselineRainTotal"),
+                "anomalyPct": s.get("rainAnomalyPct")
+            }
+
     return trends_data

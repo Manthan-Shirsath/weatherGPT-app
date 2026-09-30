@@ -46,28 +46,13 @@ async function fetchWithHandler(url: string, options?: RequestInit) {
   }
 }
 
-import { fetchDirectDashboard } from './openMeteo';
-
 export const weatherApi = {
-  getDashboard: (city: string) => fetchDirectDashboard(city),
-  getCurrent: async (city: string) => {
-    const data = await fetchDirectDashboard(city);
-    return { ...data.current, city: data.location.city };
-  },
-  getHourly: async (city: string) => {
-    const data = await fetchDirectDashboard(city);
-    return data.hourly;
-  },
-  getDaily: async (city: string) => {
-    const data = await fetchDirectDashboard(city);
-    return data.daily;
-  },
-  getAlerts: async (city: string) => {
-    return [];
-  },
-  getAirQuality: async (city: string) => {
-    return {};
-  },
+  getDashboard: (city: string) => fetchWithHandler(`${API_BASE_URL}/api/weather/dashboard?city=${encodeURIComponent(city)}`),
+  getCurrent: (city: string) => fetchWithHandler(`${API_BASE_URL}/api/weather/current?city=${encodeURIComponent(city)}`),
+  getHourly: (city: string) => fetchWithHandler(`${API_BASE_URL}/api/weather/hourly?city=${encodeURIComponent(city)}`).catch(() => null),
+  getDaily: (city: string) => fetchWithHandler(`${API_BASE_URL}/api/weather/daily?city=${encodeURIComponent(city)}`).catch(() => null),
+  getAlerts: (city: string) => fetchWithHandler(`${API_BASE_URL}/api/weather/alerts?city=${encodeURIComponent(city)}`),
+  getAirQuality: (city: string) => fetchWithHandler(`${API_BASE_URL}/api/weather/air-quality?city=${encodeURIComponent(city)}`).catch(() => null),
   chat: (message: string, city: string, history: any[] = [], context?: any) => fetchWithHandler(`${API_BASE_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

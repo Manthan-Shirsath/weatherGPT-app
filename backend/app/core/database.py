@@ -78,17 +78,17 @@ async def check_db_health(force: bool = False) -> bool:
     return await init_db()
 
 def _try_start_wsl_postgres():
-    """If running on Windows and PostgreSQL is on 127.0.0.1, ensure WSL postgresql service is active."""
+    """If running on Windows native and PostgreSQL is on 127.0.0.1, ensure WSL postgresql service is active."""
     import subprocess
     import platform
-    if platform.system() != "Windows":
+    if platform.system() != "Windows" or os.getenv("RUNNING_IN_DOCKER") or os.getenv("DISABLE_WSL_POSTGRES", "false").lower() in ("true", "1"):
         return
     try:
         # Quick non-blocking attempt to ensure WSL postgresql is running
         subprocess.run(
             ["wsl", "-d", "Ubuntu", "-u", "root", "--", "bash", "-c", "service postgresql status | grep -q online || service postgresql start"],
             capture_output=True,
-            timeout=5
+            timeout=2
         )
     except Exception:
         pass

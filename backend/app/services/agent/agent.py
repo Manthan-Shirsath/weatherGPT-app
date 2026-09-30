@@ -47,7 +47,7 @@ load_dotenv("backend/.env")
 
 logger = logging.getLogger("skycast.agent")
 
-from backend.app.services.key_rotator import get_rotator_for_provider, mask_key, groq_rotator, gemini_rotator, sarvam_rotator
+from backend.app.services.key_rotator import get_rotator_for_provider, mask_key, groq_rotator, gemini_rotator, sarvam_rotator, ovserve_rotator
 
 # Provider settings
 LLM_PROVIDER = (os.getenv("LLM_PROVIDER") or "groq").strip().lower()
@@ -60,11 +60,15 @@ GROQ_MODEL = os.getenv("GROQ_MODEL") or os.getenv("LLM_MODEL") or "openai/llama-
 SARVAM_BASE_URL = os.getenv("SARVAM_BASE_URL", "https://api.sarvam.ai").rstrip("/")
 SARVAM_MODEL = os.getenv("SARVAM_MODEL") or "sarvam-105b"
 
+# OVserve Local Configuration (Gemma 4 E2B via OpenVINO)
+OVSERVE_BASE_URL = os.getenv("OVSERVE_BASE_URL", "http://127.0.0.1:11435/v1").rstrip("/")
+OVSERVE_MODEL = os.getenv("OVSERVE_MODEL") or "OpenVINO/gemma-4-E2B-it-int4-ov"
+
 
 def _resolve_provider_settings(provider: Optional[str] = None):
     """
     Resolve active provider, API key, base URL, model, and fallback key using the key rotator pool.
-    Defaults to Groq with openai/llama-3.3-70b-versatile, while keeping Gemini and Sarvam fully configurable.
+    Supports: groq, gemini, sarvam, ovserve (local Gemma 4 E2B via OpenVINO).
     """
     p = (provider or LLM_PROVIDER or "groq").strip().lower()
     rotator = get_rotator_for_provider(p)
@@ -80,6 +84,14 @@ def _resolve_provider_settings(provider: Optional[str] = None):
         base_url = SARVAM_BASE_URL
         configured_model = os.getenv("SARVAM_MODEL") or os.getenv("LLM_MODEL") or "sarvam-105b"
         model = configured_model if "gemini" not in configured_model.lower() else "sarvam-105b"
+    elif p in ["ovserve", "local"]:
+        p = "ovserve"
+        base_url = OVSERVE_BASE_URL
+        configured_model = OVSERVE_MODEL
+        model = f"openai/{configured_model}" if not configured_model.startswith("openai/") else configured_model
+        # For local inference, use a dummy key if none configured
+        if not api_key:
+            api_key = "local-ovserve"
     else:
         p = "groq"
         base_url = GROQ_BASE_URL
@@ -179,6 +191,13 @@ class WeatherGPTAgent:
 
         # 3. Check for LLM availability - fallback smoothly if unconfigured
         if not self.api_key or len(self.api_key) < 5:
+            # For local providers (ovserve), fail clearly instead of silent fallback
+            if self.provider in ["ovserve", "local"]:
+                logger.error("❌ [OVSERVE] No API key configured and provider is local. Cannot fall back to cloud. Failing clearly.")
+                raise RuntimeError(
+                    f"Local LLM provider '{self.provider}' has no API key configured. "
+                    f"Set OVSERVE_API_KEY in backend/.env (e.g. 'local-ovserve')."
+                )
             logger.info("ℹ️ [%s] API key not configured. Using deterministic fallback.", self.provider.upper())
             return await self._execute_deterministic_fallback(
                 user_text=user_text,
@@ -205,6 +224,10 @@ class WeatherGPTAgent:
             )
             return agent_response
         except Exception as exc:
+            # For local providers, do NOT silently fall back - surface the error
+            if self.provider in ["ovserve", "local"]:
+                logger.error("❌ [OVSERVE] LLM request to local ovserve FAILED: %s", exc)
+                raise  # Let the HTTP 502 surface to the frontend
             logger.warning("⚠️ [%s] Request or processing failed (%s). Gracefully falling back to deterministic response.", self.provider.upper(), exc)
             return await self._execute_deterministic_fallback(
                 user_text=user_text,
@@ -408,9 +431,12 @@ class WeatherGPTAgent:
         Runs a bounded multi-turn tool calling loop using the OpenAI Agents SDK.
         Preserves SkyCast's existing tool abstraction and fallback mechanisms.
         """
-        from agents import Agent, Runner, set_default_openai_client
+        from agents import Agent, Runner, set_default_openai_client, set_default_openai_api
         from openai import AsyncOpenAI
         from backend.app.services.agent.executor import ToolExecutor
+        
+        # Force the SDK to use standard /v1/chat/completions instead of /v1/responses
+        set_default_openai_api("chat_completions")
         
         # 1. Prepare history and inputs
         messages = []
@@ -482,7 +508,18 @@ class WeatherGPTAgent:
         )
         
         for key_idx, current_key in enumerate(keys_to_try):
-            client = AsyncOpenAI(api_key=current_key, base_url=self.base_url, max_retries=1)
+            # For local ovserve, use longer timeout since local inference is slower
+            if self.provider in ["ovserve", "local"]:
+                from openai import DefaultHttpxClient
+                import httpx as _httpx
+                client = AsyncOpenAI(
+                    api_key=current_key,
+                    base_url=self.base_url,
+                    max_retries=1,
+                    timeout=_httpx.Timeout(300.0, connect=10.0)
+                )
+            else:
+                client = AsyncOpenAI(api_key=current_key, base_url=self.base_url, max_retries=1)
             set_default_openai_client(client)
             
             # 6. Run the agent
@@ -494,6 +531,14 @@ class WeatherGPTAgent:
                     mask_key(current_key),
                     key_idx + 1,
                     len(keys_to_try)
+                )
+                # === DEBUG: Verify actual LLM provider connection ===
+                logger.info(
+                    "🔍 [LLM DEBUG] Provider: %s | Base URL: %s | Model: %s | Tools attached: %s",
+                    self.provider,
+                    self.base_url,
+                    self.model,
+                    bool(root_agent.tools) and len(root_agent.tools)
                 )
                 # Pass the hook to Runner.run so it applies to all agents in the run
                 res = await Runner.run(root_agent, input=messages, max_turns=self.max_tool_calls, hooks=ui_hook)
@@ -605,6 +650,12 @@ class WeatherGPTAgent:
                     pass
 
         logger.warning("All configured keys failed or exhausted. Invoking deterministic fallback.")
+        # For local providers, do NOT silently fall back to deterministic mode
+        if self.provider in ["ovserve", "local"]:
+            raise RuntimeError(
+                f"Local LLM provider '{self.provider}' at {self.base_url} is unreachable or returned errors. "
+                f"Ensure ovserve is running: python ovserve.py"
+            )
         return await self._execute_deterministic_fallback(
             user_text=user_text,
             city=state["resolved_city"],

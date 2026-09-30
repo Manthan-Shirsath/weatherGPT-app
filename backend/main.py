@@ -11,6 +11,26 @@ if BASE_DIR not in sys.path:
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+# Auto-detect local project virtual environment and re-execute if launched from an external/system interpreter lacking fastapi
+try:
+    import fastapi
+except ImportError:
+    import subprocess
+    candidate_venvs = [
+        os.path.join(PROJECT_ROOT, ".venv", "Scripts", "python.exe"),
+        os.path.join(BASE_DIR, ".venv", "Scripts", "python.exe"),
+        os.path.join(PROJECT_ROOT, "venv", "Scripts", "python.exe"),
+        os.path.join(BASE_DIR, "venv", "Scripts", "python.exe"),
+        os.path.join(PROJECT_ROOT, ".venv", "bin", "python"),
+        os.path.join(BASE_DIR, ".venv", "bin", "python"),
+        os.path.join(PROJECT_ROOT, "venv", "bin", "python"),
+        os.path.join(BASE_DIR, "venv", "bin", "python"),
+    ]
+    for venv_py in candidate_venvs:
+        if os.path.isfile(venv_py) and os.path.abspath(sys.executable).lower() != os.path.abspath(venv_py).lower():
+            sys.exit(subprocess.call([venv_py] + sys.argv))
+    raise
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -159,7 +179,7 @@ def ensure_single_instance(host: str = "127.0.0.1", port: int = 8000) -> bool:
 if __name__ == "__main__":
     import uvicorn
     if ensure_single_instance(host="127.0.0.1", port=8000):
-        uvicorn.run(app, host="127.0.0.1", port=8000)
+        uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=True)
     else:
         logger.error("❌ Aborting startup to prevent duplicate competing backend instances.")
         sys.exit(1)

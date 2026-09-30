@@ -46,7 +46,7 @@ class HybridWeatherCache:
             try:
                 val = await self.redis_client.get(key)
                 if val is not None:
-                    logger.info("🎯 [CACHE HIT - REDIS] key='%s'", key)
+                    logger.debug("🎯 [CACHE HIT - REDIS] key='%s'", key)
                     parsed = json.loads(val)
                     self._stale_snapshots[key] = parsed
                     return parsed
@@ -58,14 +58,14 @@ class HybridWeatherCache:
         if key in self._memory_cache:
             entry = self._memory_cache[key]
             if now < entry["expires_at"]:
-                logger.info("🎯 [CACHE HIT - MEMORY] key='%s'", key)
+                logger.debug("🎯 [CACHE HIT - MEMORY] key='%s'", key)
                 return entry["data"]
             else:
                 # Expired from active memory
                 self._stale_snapshots[key] = entry["data"]
                 del self._memory_cache[key]
 
-        logger.info("💨 [CACHE MISS] key='%s'", key)
+        logger.debug("💨 [CACHE MISS] key='%s'", key)
         return None
 
     async def set(self, key: str, value: Any, ttl: int = 300):
@@ -91,14 +91,14 @@ class HybridWeatherCache:
     async def get_stale(self, key: str) -> Optional[Any]:
         """Return last known data during provider outages."""
         if key in self._stale_snapshots:
-            logger.info("🛡️ [STALE FALLBACK - MEMORY] Returning last known data for key='%s'", key)
+            logger.debug("🛡️ [STALE FALLBACK - MEMORY] Returning last known data for key='%s'", key)
             return self._stale_snapshots[key]
 
         if self._is_redis_active and self.redis_client:
             try:
                 val = await self.redis_client.get(f"stale:{key}")
                 if val:
-                    logger.info("🛡️ [STALE FALLBACK - REDIS] Returning last known data for key='%s'", key)
+                    logger.debug("🛡️ [STALE FALLBACK - REDIS] Returning last known data for key='%s'", key)
                     return json.loads(val)
             except Exception:
                 pass
