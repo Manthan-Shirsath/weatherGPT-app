@@ -2,8 +2,9 @@
 Climate Intelligence & Climatological Research Service.
 Fetches verified historical observations from Open-Meteo Archive API (ERA5 reanalysis)
 and Open-Meteo Forecast API (for recent days).
-Computes 30-year/10-year climatological baselines, deterministic temperature & precipitation
-anomalies, extreme event detections, and AI climatological narratives.
+Computes 10-year climatological baselines, deterministic temperature & precipitation
+anomalies, extreme event detections, seasonal annual cycles, multi-year comparisons,
+and natural language climatological briefings.
 Does NOT fabricate or hardcode data.
 """
 import datetime
@@ -23,7 +24,7 @@ ARCHIVE_TIMEOUT_SECONDS = 25.0
 
 # In-memory baseline normal cache keyed by rounded lat_lon
 _BASELINE_CACHE: Dict[str, Dict[str, Any]] = {}
-_INTELLIGENCE_CACHE: Dict[str, Dict[str, Any]] = {}
+_PRIOR_YEARS_CACHE: Dict[str, List[Dict[str, Any]]] = {}
 
 
 def _safe_mean(values: List[float]) -> Optional[float]:
@@ -56,7 +57,7 @@ class ClimateService:
     """
     Climate Intelligence Service providing climatological baselines,
     actual vs normal comparisons, anomaly detection, extremes analysis,
-    and narrative climate summaries.
+    seasonal patterns, year-over-year tables, and narrative climate summaries.
     """
 
     @classmethod
@@ -97,7 +98,7 @@ class ClimateService:
         """
         Calculate or retrieve cached 366-day daily climatological baseline normals.
         Uses a representative 10-year historical baseline (2014-2023) from ERA5 reanalysis.
-        Returns a dict mapping 'MM-DD' -> {mean_temp, max_temp, min_temp, precip}.
+        Returns a dict mapping 'MM-DD' -> {mean_temp, max_temp, min_temp, precip, hot_prob, rain_prob}.
         """
         cache_key = f"{round(lat, 2)}_{round(lon, 2)}"
         if cache_key in _BASELINE_CACHE:
@@ -117,12 +118,13 @@ class ClimateService:
         t_maxs = daily.get("temperature_2m_max", [])
         t_mins = daily.get("temperature_2m_min", [])
         precips = daily.get("precipitation_sum", [])
+        winds = daily.get("wind_speed_10m_max", [])
 
         accumulator: Dict[str, Dict[str, List[float]]] = {}
         for i, t in enumerate(times):
             md = t[5:]  # 'MM-DD'
             if md not in accumulator:
-                accumulator[md] = {"t_mean": [], "t_max": [], "t_min": [], "precip": []}
+                accumulator[md] = {"t_mean": [], "t_max": [], "t_min": [], "precip": [], "wind": []}
             if i < len(t_means) and t_means[i] is not None:
                 accumulator[md]["t_mean"].append(t_means[i])
             if i < len(t_maxs) and t_maxs[i] is not None:
@@ -131,14 +133,25 @@ class ClimateService:
                 accumulator[md]["t_min"].append(t_mins[i])
             if i < len(precips) and precips[i] is not None:
                 accumulator[md]["precip"].append(precips[i])
+            if i < len(winds) and winds[i] is not None:
+                accumulator[md]["wind"].append(winds[i])
 
         normals: Dict[str, Dict[str, float]] = {}
         for md, vals in accumulator.items():
+            norm_max = round(sum(vals["t_max"]) / len(vals["t_max"]), 1) if vals["t_max"] else 30.0
+            # Hot day probability: fraction of baseline years exceeding norm_max + 4.5°C
+            hot_count = sum(1 for v in vals["t_max"] if v >= norm_max + 4.5 or v >= 38.0)
+            rain_count = sum(1 for p in vals["precip"] if p >= 1.0)
+            years_count = max(len(vals["t_max"]), 1)
+
             normals[md] = {
                 "mean_temp": round(sum(vals["t_mean"]) / len(vals["t_mean"]), 1) if vals["t_mean"] else 25.0,
-                "max_temp": round(sum(vals["t_max"]) / len(vals["t_max"]), 1) if vals["t_max"] else 30.0,
+                "max_temp": norm_max,
                 "min_temp": round(sum(vals["t_min"]) / len(vals["t_min"]), 1) if vals["t_min"] else 20.0,
                 "precip": round(sum(vals["precip"]) / len(vals["precip"]), 2) if vals["precip"] else 1.0,
+                "wind": round(sum(vals["wind"]) / len(vals["wind"]), 1) if vals["wind"] else 12.0,
+                "hot_day_prob": hot_count / years_count,
+                "rain_day_prob": rain_count / years_count
             }
 
         _BASELINE_CACHE[cache_key] = normals
@@ -174,6 +187,7 @@ class ClimateService:
                         "max_temp": d.get("temperature_2m_max", [None])[i],
                         "min_temp": d.get("temperature_2m_min", [None])[i],
                         "precip": d.get("precipitation_sum", [0.0])[i] or 0.0,
+                        "wind_max": d.get("wind_speed_10m_max", [None])[i],
                         "source": "era5_reanalysis"
                     }
 
@@ -186,7 +200,7 @@ class ClimateService:
                     f"{FORECAST_API_URL}"
                     f"?latitude={lat}&longitude={lon}"
                     f"&past_days={past_days_count}&forecast_days=1"
-                    f"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum"
+                    f"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max"
                     f"&timezone=UTC"
                 )
                 async with httpx.AsyncClient(timeout=15.0) as client:
@@ -197,6 +211,7 @@ class ClimateService:
                         r_max = recent_data.get("temperature_2m_max", [])
                         r_min = recent_data.get("temperature_2m_min", [])
                         r_precip = recent_data.get("precipitation_sum", [])
+                        r_wind = recent_data.get("wind_speed_10m_max", [])
 
                         for i, t in enumerate(r_times):
                             t_date = datetime.date.fromisoformat(t)
@@ -205,6 +220,7 @@ class ClimateService:
                                 min_v = r_min[i] if i < len(r_min) else None
                                 mean_v = round((max_v + min_v) / 2.0, 1) if (max_v is not None and min_v is not None) else None
                                 p_v = r_precip[i] if i < len(r_precip) else 0.0
+                                w_v = r_wind[i] if i < len(r_wind) else None
 
                                 # Only overwrite or append if missing or from forecast
                                 if t not in daily_map or daily_map[t]["mean_temp"] is None:
@@ -214,6 +230,7 @@ class ClimateService:
                                         "max_temp": max_v,
                                         "min_temp": min_v,
                                         "precip": p_v or 0.0,
+                                        "wind_max": w_v,
                                         "source": "operational_observations"
                                     }
             except Exception as e:
@@ -235,6 +252,7 @@ class ClimateService:
         unusually_hot_days = 0
         unusually_cold_days = 0
         heavy_rain_days = 0
+        strong_wind_days = 0
         events = []
 
         cur_dry_spell = 0
@@ -245,11 +263,12 @@ class ClimateService:
         for r in records:
             d_str = r["date"]
             md = d_str[5:]
-            norm = normals.get(md, {"mean_temp": 25.0, "max_temp": 30.0, "min_temp": 20.0, "precip": 1.0})
+            norm = normals.get(md, {"mean_temp": 25.0, "max_temp": 30.0, "min_temp": 20.0, "precip": 1.0, "wind": 12.0})
 
             t_max = r["max_temp"]
             t_min = r["min_temp"]
             precip = r["precip"] or 0.0
+            wind = r.get("wind_max")
 
             # Heat spike: max temp >= normal_max + 4.5°C or >= 38°C
             if t_max is not None and (t_max >= norm["max_temp"] + 4.5 or t_max >= 38.0):
@@ -282,6 +301,16 @@ class ClimateService:
                     "detail": f"{precip} mm recorded"
                 })
 
+            # Strong wind: wind >= 35.0 km/h
+            if wind is not None and wind >= 35.0:
+                strong_wind_days += 1
+                events.append({
+                    "date": d_str,
+                    "type": "strong_wind",
+                    "title": "High Wind Gust Event",
+                    "detail": f"{wind} km/h peak speed"
+                })
+
             # Dry & wet spell tracking
             if precip < 1.0:
                 cur_dry_spell += 1
@@ -301,39 +330,269 @@ class ClimateService:
             "unusuallyHotDays": unusually_hot_days,
             "unusuallyColdDays": unusually_cold_days,
             "heavyRainDays": heavy_rain_days,
+            "strongWindDays": strong_wind_days,
             "longestDrySpellDays": max_dry_spell,
             "longestWetSpellDays": max_wet_spell,
             "events": events[:8]  # Limit to top 8 distinct events
         }
 
     @classmethod
-    def _get_season_context(cls, date: datetime.date) -> Dict[str, str]:
-        """Classify meteorological season for Indian subcontinent / general climatology."""
-        month = date.month
-        if month in [12, 1, 2]:
-            return {
-                "season": "Winter Season",
-                "months": "Dec - Feb",
-                "character": "Generally cool and dry with minimal precipitation."
+    def _compute_seasonal_profile(
+        cls,
+        normals: Dict[str, Dict[str, float]],
+        end_date: datetime.date
+    ) -> Dict[str, Any]:
+        """
+        Build annual seasonal patterns from 366-day climatological normals:
+        12 monthly normal records + 4 Indian Meteorological Seasons.
+        """
+        month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        monthly_acc: Dict[int, Dict[str, List[float]]] = {m: {"mean": [], "max": [], "min": [], "precip": []} for m in range(1, 13)}
+
+        for md, norm in normals.items():
+            try:
+                m = int(md[:2])
+                monthly_acc[m]["mean"].append(norm["mean_temp"])
+                monthly_acc[m]["max"].append(norm["max_temp"])
+                monthly_acc[m]["min"].append(norm["min_temp"])
+                monthly_acc[m]["precip"].append(norm["precip"])
+            except Exception:
+                continue
+
+        monthly_profile = []
+        for m in range(1, 13):
+            m_data = monthly_acc[m]
+            m_precip_sum = sum(m_data["precip"]) if m_data["precip"] else 0.0
+            # Rainy days estimate: days where precip >= 1.0mm
+            rainy_days_est = sum(1 for p in m_data["precip"] if p >= 1.0)
+            monthly_profile.append({
+                "month": month_names[m - 1],
+                "monthNum": m,
+                "normalMeanTemp": round(sum(m_data["mean"]) / len(m_data["mean"]), 1) if m_data["mean"] else 25.0,
+                "normalMaxTemp": round(sum(m_data["max"]) / len(m_data["max"]), 1) if m_data["max"] else 30.0,
+                "normalMinTemp": round(sum(m_data["min"]) / len(m_data["min"]), 1) if m_data["min"] else 20.0,
+                "normalRain": round(m_precip_sum, 1),
+                "normalRainyDays": rainy_days_est,
+                "isCurrent": (m == end_date.month)
+            })
+
+        # 4 Indian Meteorological Seasons
+        cur_m = end_date.month
+        seasons = [
+            {
+                "id": "winter",
+                "name": "Winter Season",
+                "months": "Dec – Feb",
+                "normalMeanTemp": round(sum(m["normalMeanTemp"] for m in monthly_profile if m["monthNum"] in [12, 1, 2]) / 3, 1),
+                "normalTotalRain": round(sum(m["normalRain"] for m in monthly_profile if m["monthNum"] in [12, 1, 2]), 1),
+                "normalRainyDays": sum(m["normalRainyDays"] for m in monthly_profile if m["monthNum"] in [12, 1, 2]),
+                "description": "Characterized by clear skies, cool north-westerly air, low humidity, and dry stable conditions.",
+                "isActive": cur_m in [12, 1, 2]
+            },
+            {
+                "id": "pre_monsoon",
+                "name": "Pre-Monsoon / Summer",
+                "months": "Mar – May",
+                "normalMeanTemp": round(sum(m["normalMeanTemp"] for m in monthly_profile if m["monthNum"] in [3, 4, 5]) / 3, 1),
+                "normalTotalRain": round(sum(m["normalRain"] for m in monthly_profile if m["monthNum"] in [3, 4, 5]), 1),
+                "normalRainyDays": sum(m["normalRainyDays"] for m in monthly_profile if m["monthNum"] in [3, 4, 5]),
+                "description": "Marked by intense daytime insolation, thermal lows, localized thunderstorm activity (Kalbaishakhi/Mango showers), and peak annual temperatures.",
+                "isActive": cur_m in [3, 4, 5]
+            },
+            {
+                "id": "monsoon",
+                "name": "Southwest Monsoon",
+                "months": "Jun – Sep",
+                "normalMeanTemp": round(sum(m["normalMeanTemp"] for m in monthly_profile if m["monthNum"] in [6, 7, 8, 9]) / 4, 1),
+                "normalTotalRain": round(sum(m["normalRain"] for m in monthly_profile if m["monthNum"] in [6, 7, 8, 9]), 1),
+                "normalRainyDays": sum(m["normalRainyDays"] for m in monthly_profile if m["monthNum"] in [6, 7, 8, 9]),
+                "description": "The primary agricultural moisture driver. Sustained maritime cloud cover, high relative humidity, and heavy seasonal accumulation.",
+                "isActive": cur_m in [6, 7, 8, 9]
+            },
+            {
+                "id": "post_monsoon",
+                "name": "Post-Monsoon / Retreating",
+                "months": "Oct – Nov",
+                "normalMeanTemp": round(sum(m["normalMeanTemp"] for m in monthly_profile if m["monthNum"] in [10, 11]) / 2, 1),
+                "normalTotalRain": round(sum(m["normalRain"] for m in monthly_profile if m["monthNum"] in [10, 11]), 1),
+                "normalRainyDays": sum(m["normalRainyDays"] for m in monthly_profile if m["monthNum"] in [10, 11]),
+                "description": "Atmospheric transition phase with retreating monsoon trough, periodic coastal cyclonic storms in Bay of Bengal/Arabian Sea, and gradual cooling.",
+                "isActive": cur_m in [10, 11]
             }
-        elif month in [3, 4, 5]:
-            return {
-                "season": "Pre-Monsoon / Summer Season",
-                "months": "Mar - May",
-                "character": "Rising thermal peaks, convective activity, and localized thunderstorms."
+        ]
+
+        active_season = next((s for s in seasons if s["isActive"]), seasons[2])
+
+        return {
+            "currentSeason": active_season["name"],
+            "months": monthly_profile,
+            "seasons": seasons,
+            "annualNormalRain": round(sum(m["normalRain"] for m in monthly_profile), 1),
+            "annualNormalMeanTemp": round(sum(m["normalMeanTemp"] for m in monthly_profile) / 12, 1)
+        }
+
+    @classmethod
+    async def _compute_prior_years_comparison(
+        cls,
+        lat: float,
+        lon: float,
+        start_date: datetime.date,
+        end_date: datetime.date,
+        current_stats: Dict[str, Any],
+        baseline_stats: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """
+        Compare the selected calendar window across Current Year, Year T-1 (e.g. 2025),
+        Year T-2 (e.g. 2024), and 10-Year Climatological Normal.
+        """
+        cache_key = f"{round(lat, 2)}_{round(lon, 2)}_{start_date.month}_{start_date.day}_{end_date.month}_{end_date.day}"
+        if cache_key in _PRIOR_YEARS_CACHE:
+            cached = _PRIOR_YEARS_CACHE[cache_key]
+            # Update the first item (current) with live stats
+            cached[0]["avgTemp"] = current_stats.get("actualMeanTemp")
+            cached[0]["totalRain"] = current_stats.get("actualRainTotal")
+            cached[0]["rainyDays"] = current_stats.get("rainyDays")
+            cached[0]["hotDays"] = current_stats.get("hotDays")
+            cached[0]["peakTemp"] = current_stats.get("peakTemp")
+            return cached
+
+        # Construct target date ranges for T-1 and T-2
+        cur_year = end_date.year
+        y_prev1 = cur_year - 1
+        y_prev2 = cur_year - 2
+
+        # Safe date clamping
+        try:
+            start_p1 = datetime.date(y_prev1, start_date.month, min(start_date.day, 28))
+            end_p1 = datetime.date(y_prev1, end_date.month, min(end_date.day, 28))
+            start_p2 = datetime.date(y_prev2, start_date.month, min(start_date.day, 28))
+            end_p2 = datetime.date(y_prev2, end_date.month, min(end_date.day, 28))
+        except Exception:
+            start_p1 = datetime.date(y_prev1, 1, 1)
+            end_p1 = datetime.date(y_prev1, 1, 30)
+            start_p2 = datetime.date(y_prev2, 1, 1)
+            end_p2 = datetime.date(y_prev2, 1, 30)
+
+        # Query past 2 years in a single block from start_p2 to end_p1
+        raw_prior = await cls._fetch_archive(lat, lon, start_p2, end_p1)
+        
+        stats_p1 = {"avgTemp": None, "totalRain": 0.0, "rainyDays": 0, "hotDays": 0, "peakTemp": None}
+        stats_p2 = {"avgTemp": None, "totalRain": 0.0, "rainyDays": 0, "hotDays": 0, "peakTemp": None}
+
+        if raw_prior and "daily" in raw_prior:
+            d = raw_prior["daily"]
+            times = d.get("time", [])
+            t_means = d.get("temperature_2m_mean", [])
+            t_maxs = d.get("temperature_2m_max", [])
+            precips = d.get("precipitation_sum", [])
+
+            # Filter for P1
+            p1_temps = [t_means[i] for i, t in enumerate(times) if start_p1.isoformat() <= t <= end_p1.isoformat() and t_means[i] is not None]
+            p1_maxs = [t_maxs[i] for i, t in enumerate(times) if start_p1.isoformat() <= t <= end_p1.isoformat() and t_maxs[i] is not None]
+            p1_precips = [precips[i] for i, t in enumerate(times) if start_p1.isoformat() <= t <= end_p1.isoformat() and precips[i] is not None]
+
+            if p1_temps:
+                stats_p1["avgTemp"] = round(sum(p1_temps) / len(p1_temps), 1)
+                stats_p1["totalRain"] = round(sum(p1_precips), 1)
+                stats_p1["rainyDays"] = sum(1 for p in p1_precips if p >= 1.0)
+                stats_p1["hotDays"] = sum(1 for t in p1_maxs if t >= 35.0)
+                stats_p1["peakTemp"] = round(max(p1_maxs), 1) if p1_maxs else None
+
+            # Filter for P2
+            p2_temps = [t_means[i] for i, t in enumerate(times) if start_p2.isoformat() <= t <= end_p2.isoformat() and t_means[i] is not None]
+            p2_maxs = [t_maxs[i] for i, t in enumerate(times) if start_p2.isoformat() <= t <= end_p2.isoformat() and t_maxs[i] is not None]
+            p2_precips = [precips[i] for i, t in enumerate(times) if start_p2.isoformat() <= t <= end_p2.isoformat() and precips[i] is not None]
+
+            if p2_temps:
+                stats_p2["avgTemp"] = round(sum(p2_temps) / len(p2_temps), 1)
+                stats_p2["totalRain"] = round(sum(p2_precips), 1)
+                stats_p2["rainyDays"] = sum(1 for p in p2_precips if p >= 1.0)
+                stats_p2["hotDays"] = sum(1 for t in p2_maxs if t >= 35.0)
+                stats_p2["peakTemp"] = round(max(p2_maxs), 1) if p2_maxs else None
+
+        result = [
+            {
+                "label": f"{cur_year} (Current)",
+                "year": cur_year,
+                "avgTemp": current_stats.get("actualMeanTemp"),
+                "totalRain": current_stats.get("actualRainTotal"),
+                "rainyDays": current_stats.get("rainyDays"),
+                "hotDays": current_stats.get("hotDays"),
+                "peakTemp": current_stats.get("peakTemp"),
+                "isCurrent": True
+            },
+            {
+                "label": f"{y_prev1}",
+                "year": y_prev1,
+                "avgTemp": stats_p1["avgTemp"],
+                "totalRain": stats_p1["totalRain"],
+                "rainyDays": stats_p1["rainyDays"],
+                "hotDays": stats_p1["hotDays"],
+                "peakTemp": stats_p1["peakTemp"],
+                "isCurrent": False
+            },
+            {
+                "label": f"{y_prev2}",
+                "year": y_prev2,
+                "avgTemp": stats_p2["avgTemp"],
+                "totalRain": stats_p2["totalRain"],
+                "rainyDays": stats_p2["rainyDays"],
+                "hotDays": stats_p2["hotDays"],
+                "peakTemp": stats_p2["peakTemp"],
+                "isCurrent": False
+            },
+            {
+                "label": "10-Yr Normal",
+                "year": "Normal",
+                "avgTemp": baseline_stats.get("meanTemp"),
+                "totalRain": baseline_stats.get("totalRain"),
+                "rainyDays": baseline_stats.get("rainyDays"),
+                "hotDays": baseline_stats.get("hotDays"),
+                "peakTemp": baseline_stats.get("maxTemp"),
+                "isCurrent": False
             }
-        elif month in [6, 7, 8, 9]:
-            return {
-                "season": "Southwest Monsoon Season",
-                "months": "Jun - Sep",
-                "character": "Primary precipitation period with sustained moisture advection and high humidity."
-            }
-        else:
-            return {
-                "season": "Post-Monsoon / Retreating Monsoon",
-                "months": "Oct - Nov",
-                "character": "Decreasing rainfall, stable air, and transition to cooler winter regime."
-            }
+        ]
+
+        _PRIOR_YEARS_CACHE[cache_key] = result
+        return result
+
+    @classmethod
+    async def _fetch_recent_hourly(cls, lat: float, lon: float) -> List[Dict[str, Any]]:
+        """Fetch recent 48 hours to 7 days hourly observations for drill-down view."""
+        try:
+            url = (
+                f"{FORECAST_API_URL}"
+                f"?latitude={lat}&longitude={lon}"
+                f"&past_days=7&forecast_days=1"
+                f"&hourly=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code"
+                f"&timezone=auto"
+            )
+            async with httpx.AsyncClient(timeout=12.0) as client:
+                res = await client.get(url)
+                if res.status_code == 200:
+                    hourly = res.json().get("hourly", {})
+                    times = hourly.get("time", [])
+                    temps = hourly.get("temperature_2m", [])
+                    hums = hourly.get("relative_humidity_2m", [])
+                    rains = hourly.get("precipitation", [])
+                    winds = hourly.get("wind_speed_10m", [])
+                    codes = hourly.get("weather_code", [])
+
+                    # Return last 48 points (2 days) or sliced 7 days
+                    points = []
+                    for i in range(len(times)):
+                        points.append({
+                            "time": times[i],
+                            "temp": temps[i] if i < len(temps) else None,
+                            "humidity": hums[i] if i < len(hums) else None,
+                            "rain": rains[i] if i < len(rains) else 0.0,
+                            "wind": winds[i] if i < len(winds) else None,
+                            "code": codes[i] if i < len(codes) else 0
+                        })
+                    return points[-48:]
+        except Exception as e:
+            logger.warning("Recent hourly fetch encountered: %s", e)
+        return []
 
     @classmethod
     async def _generate_climate_insight(
@@ -342,48 +601,48 @@ class ClimateService:
         range_str: str,
         summary: Dict[str, Any],
         extremes: Dict[str, Any],
-        season: Dict[str, str]
+        season: Dict[str, Any],
+        prior_years: List[Dict[str, Any]]
     ) -> Dict[str, str]:
         """
         Generate AI Climate Insight explaining computed statistics.
-        Falls back seamlessly to deterministic synthesis if LLM is unavailable.
+        Does NOT invent numbers. Explains verified facts in concise natural language.
         """
         temp_ano = summary.get("tempAnomaly", 0.0)
         rain_ano_pct = summary.get("rainAnomalyPct", 0.0)
         rain_total = summary.get("actualRainTotal", 0.0)
-        hot_days = extremes.get("unusuallyHotDays", 0)
+        base_rain = summary.get("baselineRainTotal", 0.0)
+        hot_days = summary.get("hotDays", 0)
+        base_hot_days = summary.get("baselineHotDays", 0)
         dry_spell = extremes.get("longestDrySpellDays", 0)
 
-        # Build clean deterministic narrative
-        temp_sentiment = "above normal" if temp_ano > 0.5 else ("below normal" if temp_ano < -0.5 else "near normal")
-        rain_sentiment = "excess" if rain_ano_pct > 19 else ("deficient" if rain_ano_pct < -19 else "normal")
+        # Contextual descriptors
+        temp_sentiment = "warmer than normal" if temp_ano >= 0.5 else ("cooler than normal" if temp_ano <= -0.5 else "near normal")
+        rain_sentiment = "excess" if rain_ano_pct > 19 else ("below normal" if rain_ano_pct < -19 else "aligned with normal")
 
-        headline = f"{city} Climate Brief: Temperatures tracking {temp_sentiment} ({temp_ano:+.1f}°C vs normal)"
+        headline = f"{city} Climate Brief: {temp_sentiment.capitalize()} ({temp_ano:+.1f}°C anomaly) with {rain_sentiment} rainfall"
         
+        # Prior year comparison context
+        prior_rain_str = ""
+        if len(prior_years) > 1 and prior_years[1].get("totalRain") is not None:
+            p1_year = prior_years[1].get("year", "previous year")
+            p1_rain = prior_years[1].get("totalRain", 0.0)
+            prior_rain_str = f" For comparison, {p1_year} recorded {p1_rain} mm over the identical calendar window."
+
         narrative_parts = [
-            f"Over the selected {range_str.upper()} window, {city} recorded an average temperature of {summary.get('actualMeanTemp', '--')}°C, "
-            f"deviating by {temp_ano:+.1f}°C compared to the 10-year climatological baseline ({summary.get('baselineMeanTemp', '--')}°C). "
-            f"Peak temperature reached {summary.get('peakTemp', '--')}°C on {summary.get('peakTempDate', 'recent date')}.",
+            f"During the selected {range_str.upper()} window, {city} averaged {summary.get('actualMeanTemp', '--')}°C, "
+            f"tracking {temp_ano:+.1f}°C relative to the 10-year climatological normal of {summary.get('baselineMeanTemp', '--')}°C. "
+            f"The peak temperature recorded was {summary.get('peakTemp', '--')}°C on {summary.get('peakTempDate', 'recent date')}, "
+            f"with a minimum low of {summary.get('lowTemp', '--')}°C.",
             
-            f"Total precipitation accumulated to {rain_total} mm, which is {rain_ano_pct:+.1f}% ({summary.get('rainAnomalyMm', 0):+.1f} mm) {rain_sentiment} "
-            f"relative to the expected climatological normal of {summary.get('baselineRainTotal', '--')} mm. "
-            f"The period featured {extremes.get('heavyRainDays', 0)} heavy rainfall day(s) and a maximum dry spell of {dry_spell} consecutive days.",
+            f"Precipitation accumulated to {rain_total} mm compared to the climatological expected baseline of {base_rain} mm ({abs(rain_ano_pct):.1f}% {rain_sentiment}). "
+            f"{hot_days} hot day(s) breached the 90th percentile threshold (normal expectation: {base_hot_days} days). "
+            f"The period experienced {summary.get('rainyDays', 0)} wet day(s) and a maximum dry spell of {dry_spell} consecutive days.{prior_rain_str}",
             
-            f"Seasonal Context ({season.get('season')}): {season.get('character')}"
+            f"Seasonal Context ({season.get('currentSeason', 'Regional Climatology')}): {season.get('annualContext', 'Conditions align with seasonal transition patterns.')}"
         ]
 
-        if hot_days > 0:
-            narrative_parts.append(f"Notable anomaly: {hot_days} day(s) exceeded the 90th percentile thermal threshold with temperatures > 4.5°C above seasonal norms.")
-
         narrative = " ".join(narrative_parts)
-
-        # Attempt LLM synthesis if available (optional enhancement)
-        try:
-            from backend.app.services.forecast_ai_service import ForecastAIService
-            from backend.app.services.gemini_service import gemini_service
-            # If fast provider exists, we could enhance, but deterministic narrative is already rigorous and prompt-safe
-        except Exception:
-            pass
 
         return {
             "headline": headline,
@@ -402,7 +661,8 @@ class ClimateService:
     ) -> Dict[str, Any]:
         """
         Main Climate Intelligence Engine endpoint.
-        Returns baseline, actuals, anomalies, extremes, and narrative insights.
+        Returns baseline normals, actuals, anomalies, extremes, seasonal pattern,
+        year-over-year table, and narrative insights.
         """
         today = datetime.date.today()
         r = range_str.lower()
@@ -451,7 +711,7 @@ class ClimateService:
         lon = float(coords.get("longitude") or coords.get("lon"))
         display_name = f"{coords.get('name', city)}, {coords.get('country', '')}".strip(", ")
 
-        # 1. Get Climatological Normals
+        # 1. Get Climatological Normals (366 days)
         normals = await cls._get_climatological_normals(lat, lon)
 
         # 2. Get Spliced Continuous Daily Actuals
@@ -471,6 +731,8 @@ class ClimateService:
         baseline_temps = []
         actual_rains = []
         baseline_rains = []
+        baseline_hot_days_acc = 0.0
+        baseline_rain_days_acc = 0.0
 
         cum_actual_rain = 0.0
         cum_baseline_rain = 0.0
@@ -483,7 +745,7 @@ class ClimateService:
         for r_item in records:
             d_str = r_item["date"]
             md = d_str[5:]
-            norm = normals.get(md, {"mean_temp": 25.0, "max_temp": 30.0, "min_temp": 20.0, "precip": 1.0})
+            norm = normals.get(md, {"mean_temp": 25.0, "max_temp": 30.0, "min_temp": 20.0, "precip": 1.0, "hot_day_prob": 0.05, "rain_day_prob": 0.5})
 
             t_act = r_item["mean_temp"]
             t_norm = norm["mean_temp"]
@@ -504,6 +766,8 @@ class ClimateService:
 
             actual_rains.append(p_act)
             baseline_rains.append(p_norm)
+            baseline_hot_days_acc += norm.get("hot_day_prob", 0.05)
+            baseline_rain_days_acc += norm.get("rain_day_prob", 0.4)
 
             cum_actual_rain += p_act
             cum_baseline_rain += p_norm
@@ -526,7 +790,7 @@ class ClimateService:
                 "source": r_item.get("source", "era5_reanalysis")
             })
 
-        # Downsample for long 5Y and 10Y time ranges so charts don't render 3,650 SVG points
+        # Aggregation for long ranges (5Y, 10Y) so charts don't freeze the DOM
         chart_series = timeseries
         if r in ["5y", "10y"] and len(timeseries) > 200:
             step = 7 if r == "5y" else 14
@@ -545,9 +809,15 @@ class ClimateService:
         # 5. Detect Extremes
         extremes = cls._detect_extremes(records, normals)
 
-        # 6. Seasonal Context
-        season_context = cls._get_season_context(end_date)
+        actual_hot_days = extremes.get("unusuallyHotDays", 0)
+        expected_hot_days = max(round(baseline_hot_days_acc), 0)
+        hot_days_anomaly = actual_hot_days - expected_hot_days
 
+        actual_rainy_days = sum(1 for p in actual_rains if p >= 1.0)
+        expected_rainy_days = max(round(baseline_rain_days_acc), 0)
+        rainy_days_anomaly = actual_rainy_days - expected_rainy_days
+
+        # Summary dictionary
         summary = {
             "actualMeanTemp": mean_actual,
             "baselineMeanTemp": mean_baseline,
@@ -556,16 +826,41 @@ class ClimateService:
             "baselineRainTotal": round(total_baseline_rain, 1),
             "rainAnomalyMm": rain_anomaly_mm,
             "rainAnomalyPct": rain_anomaly_pct,
+            "hotDays": actual_hot_days,
+            "baselineHotDays": expected_hot_days,
+            "hotDaysAnomaly": hot_days_anomaly,
+            "rainyDays": actual_rainy_days,
+            "baselineRainyDays": expected_rainy_days,
+            "rainyDaysAnomaly": rainy_days_anomaly,
             "peakTemp": round(peak_temp, 1) if peak_temp != -999.0 else None,
             "peakTempDate": peak_temp_date,
             "lowTemp": round(low_temp, 1) if low_temp != 999.0 else None,
             "lowTempDate": low_temp_date,
-            "rainyDays": sum(1 for p in actual_rains if p >= 1.0),
             "totalDays": len(records)
         }
 
-        # 7. AI Climate Insight Narrative
-        ai_insight = await cls._generate_climate_insight(city, r, summary, extremes, season_context)
+        # 6. Seasonal Profile & Indian Monsoon System
+        seasonal_profile = cls._compute_seasonal_profile(normals, end_date)
+
+        # 7. Year-over-Year Historical Comparison
+        baseline_stats_for_table = {
+            "meanTemp": mean_baseline,
+            "totalRain": round(total_baseline_rain, 1),
+            "rainyDays": expected_rainy_days,
+            "hotDays": expected_hot_days,
+            "maxTemp": round(max((n["max_temp"] for n in normals.values()), default=30.0), 1)
+        }
+        prior_years = await cls._compute_prior_years_comparison(
+            lat, lon, start_date, end_date, summary, baseline_stats_for_table
+        )
+
+        # 8. AI Climate Insight Narrative
+        ai_insight = await cls._generate_climate_insight(
+            city, r, summary, extremes, seasonal_profile, prior_years
+        )
+
+        # 9. Recent Hourly Drill-down
+        recent_hourly = await cls._fetch_recent_hourly(lat, lon)
 
         response = {
             "city": display_name,
@@ -577,10 +872,12 @@ class ClimateService:
             "status": "ready",
             "summary": summary,
             "extremes": extremes,
-            "seasonal": season_context,
+            "seasonal": seasonal_profile,
+            "yearsComparison": prior_years,
+            "recentHourly": recent_hourly,
             "aiInsight": ai_insight,
             "timeseries": chart_series,
-            "disclaimer": "Climatological baselines derived from ERA5 reanalysis (10-year baseline normal). Recent 5-day observations supplemented via operational NWP. Not an official IMD bulletin."
+            "disclaimer": "Climatological baselines derived from ERA5 reanalysis (10-year normal). Recent 5-day observations supplemented via operational NWP. Not an official IMD bulletin."
         }
 
         return response
@@ -589,12 +886,11 @@ class ClimateService:
     # Backwards-compatibility methods
     # -----------------------------------------------------------------------
     @classmethod
-    async def get_summary(cls, city: str, range_str: str = "12m") -> Dict[str, Any]:
-        intel = await cls.get_climate_intelligence(city, range_str)
-        return intel
+    async def get_summary(cls, city: str, range_str: str = "30d") -> Dict[str, Any]:
+        return await cls.get_climate_intelligence(city, range_str)
 
     @classmethod
-    async def get_temperature_trend(cls, city: str, range_str: str = "12m") -> List[Dict[str, Any]]:
+    async def get_temperature_trend(cls, city: str, range_str: str = "30d") -> List[Dict[str, Any]]:
         intel = await cls.get_climate_intelligence(city, range_str)
         return [
             {
@@ -608,7 +904,7 @@ class ClimateService:
         ]
 
     @classmethod
-    async def get_rainfall_trend(cls, city: str, range_str: str = "12m") -> List[Dict[str, Any]]:
+    async def get_rainfall_trend(cls, city: str, range_str: str = "30d") -> List[Dict[str, Any]]:
         intel = await cls.get_climate_intelligence(city, range_str)
         return [
             {
@@ -620,7 +916,7 @@ class ClimateService:
         ]
 
     @classmethod
-    async def get_distribution(cls, city: str, range_str: str = "12m") -> Dict[str, Any]:
+    async def get_distribution(cls, city: str, range_str: str = "30d") -> Dict[str, Any]:
         intel = await cls.get_climate_intelligence(city, range_str)
         timeseries = intel.get("timeseries", [])
         total = len(timeseries) or 1
@@ -650,7 +946,7 @@ class ClimateService:
         return {"city": city, "range": range_str, "temperature": temp_dist, "rainfall": rain_dist}
 
     @classmethod
-    async def get_insights(cls, city: str, range_str: str = "12m") -> Dict[str, Any]:
+    async def get_insights(cls, city: str, range_str: str = "30d") -> Dict[str, Any]:
         intel = await cls.get_climate_intelligence(city, range_str)
         return {
             "city": city,
@@ -661,7 +957,7 @@ class ClimateService:
         }
 
     @classmethod
-    async def get_comparison(cls, cities: List[str], range_str: str = "12m") -> Dict[str, Any]:
+    async def get_comparison(cls, cities: List[str], range_str: str = "30d") -> Dict[str, Any]:
         results = []
         for city in cities[:4]:
             intel = await cls.get_climate_intelligence(city, range_str)

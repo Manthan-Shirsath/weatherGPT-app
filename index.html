@@ -7,6 +7,16 @@
     <title>SkyCast - AI Weather Intelligence</title>
     <script>
       (function() {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            for (var r of regs) r.unregister();
+          });
+        }
+        if ('caches' in window) {
+          caches.keys().then(function(keys) {
+            for (var k of keys) caches.delete(k);
+          });
+        }
         const theme = localStorage.getItem('skycast_theme');
         if (theme === 'light') {
           document.documentElement.classList.remove('dark');

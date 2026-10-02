@@ -5,11 +5,12 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     tailwindcss(),
     react(),
     VitePWA({
+      disable: mode !== 'production',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
@@ -95,4 +96,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

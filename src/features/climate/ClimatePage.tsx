@@ -5,7 +5,6 @@ import {
   Loader2, 
   AlertCircle, 
   BarChart3, 
-  TrendingDown, 
   TrendingUp, 
   Sparkles, 
   Calendar, 
@@ -16,7 +15,12 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   MapPin,
-  Download
+  Download,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Droplets,
+  Sun
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { 
@@ -35,9 +39,9 @@ import {
 import { Button } from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api';
 
-type ClimateRange = '7d' | '30d' | '90d' | '1y' | '5y' | '10y' | 'custom';
+type ClimateRange = '30d' | '90d' | '1y' | '5y' | '10y' | 'custom';
 
-const QUICK_CITIES = ['Pune', 'Mumbai', 'Delhi', 'Bengaluru', 'Hyderabad', 'Chennai', 'Kolkata'];
+const QUICK_CITIES = ['Pune', 'Mumbai', 'Delhi', 'Bengaluru', 'Hyderabad', 'Chennai', 'Kolkata', 'Jaipur', 'Ahmedabad'];
 
 export default function ClimatePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -55,8 +59,11 @@ export default function ClimatePage() {
   const [customEnd, setCustomEnd] = useState<string>('2026-09-30');
   const [showCustomModal, setShowCustomModal] = useState<boolean>(false);
 
-  // Active sub-view tab: 'overview' | 'temperature' | 'rainfall' | 'anomalies'
+  // Active chart tab: 'temperature' | 'rainfall' | 'anomalies' | 'cumulative'
   const [activeChartTab, setActiveChartTab] = useState<'temperature' | 'rainfall' | 'anomalies' | 'cumulative'>('temperature');
+
+  // Collapsible toggle for secondary recent observations drill-down
+  const [showRecentDrilldown, setShowRecentDrilldown] = useState<boolean>(false);
 
   // Sync state to URL
   const handleRangeChange = (newRange: ClimateRange) => {
@@ -110,21 +117,38 @@ export default function ClimatePage() {
   const seasonal = data?.seasonal || {};
   const aiInsight = data?.aiInsight || {};
   const timeseries = data?.timeseries || [];
+  const yearsComparison = data?.yearsComparison || [];
+  const recentHourly = data?.recentHourly || [];
 
   const rainAnomalyPct = summary.rainAnomalyPct;
 
-  // Departure classification
+  // IMD Standard Rainfall Departure classification
   const rainStatusBadge = useMemo(() => {
     if (rainAnomalyPct == null) return null;
-    if (rainAnomalyPct >= 20) return { label: `Excess (+${rainAnomalyPct}%)`, color: 'text-sky-primary bg-sky-primary/10 border-sky-primary/20' };
-    if (rainAnomalyPct <= -20) return { label: `Deficient (${rainAnomalyPct}%)`, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' };
-    return { label: `Normal (${rainAnomalyPct > 0 ? '+' : ''}${rainAnomalyPct}%)`, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' };
+    if (rainAnomalyPct >= 20) {
+      return { 
+        label: `Excess (+${rainAnomalyPct}%)`, 
+        color: 'text-sky-primary bg-sky-primary/10 border-sky-primary/20' 
+      };
+    }
+    if (rainAnomalyPct <= -20) {
+      return { 
+        label: `Deficient (${rainAnomalyPct}%)`, 
+        color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' 
+      };
+    }
+    return { 
+      label: `Normal (${rainAnomalyPct > 0 ? '+' : ''}${rainAnomalyPct}%)`, 
+      color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' 
+    };
   }, [rainAnomalyPct]);
 
   return (
     <div className="flex flex-col h-full bg-sky-background p-4 md:p-8 overflow-y-auto">
       
-      {/* Top Header & Range Controls */}
+      {/* ========================================================================= */}
+      {/* TOP HEADER & PRIMARY CLIMATE RANGE CONTROLS                               */}
+      {/* ========================================================================= */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -135,20 +159,20 @@ export default function ClimatePage() {
               Climate Intelligence
             </h1>
             <span className="text-xs px-2.5 py-0.5 font-semibold rounded-full bg-sky-ai/10 text-sky-ai border border-sky-ai/20">
-              Climatology & Extremes
+              Normals, Anomalies & Trends
             </span>
           </div>
           <p className="text-sky-text-secondary mt-1 text-sm flex items-center gap-2">
             <MapPin className="h-3.5 w-3.5 text-sky-primary" />
             <span className="font-semibold text-sky-text-primary">{data?.city || city}</span>
             <span>•</span>
-            <span>Historical Baseline Normals & Observed Anomalies</span>
+            <span>What is normal, how this period compares, and detected anomalies</span>
           </p>
         </div>
 
-        {/* Range Selector */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-sky-surface-elevated p-1.5 rounded-xl border border-sky-border shadow-sm">
-          {(['7d', '30d', '90d', '1y', '5y', '10y'] as ClimateRange[]).map((r) => (
+        {/* Primary Climatological Range Selector (30D, 90D, 1Y, 5Y, 10Y, Custom) */}
+        <div className="flex flex-wrap items-center gap-1.5 bg-sky-surface-elevated p-1.5 rounded-xl border border-sky-border shadow-xs">
+          {(['30d', '90d', '1y', '5y', '10y'] as ClimateRange[]).map((r) => (
             <Button
               key={r}
               variant="ghost"
@@ -156,7 +180,7 @@ export default function ClimatePage() {
               onClick={() => handleRangeChange(r)}
               className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
                 range === r
-                  ? 'bg-sky-primary text-white shadow-sm hover:bg-sky-primary/90 hover:text-white'
+                  ? 'bg-sky-primary text-white shadow-xs hover:bg-sky-primary/90 hover:text-white'
                   : 'text-sky-text-secondary hover:text-sky-text-primary hover:bg-sky-surface'
               }`}
             >
@@ -169,7 +193,7 @@ export default function ClimatePage() {
             onClick={() => setShowCustomModal(!showCustomModal)}
             className={`px-3 py-1 text-xs font-bold rounded-lg ${
               range === 'custom'
-                ? 'bg-sky-primary text-white shadow-sm'
+                ? 'bg-sky-primary text-white shadow-xs'
                 : 'text-sky-text-secondary hover:text-sky-text-primary'
             }`}
           >
@@ -237,18 +261,19 @@ export default function ClimatePage() {
         </Card>
       )}
 
-      {/* Loading Skeleton & Error Handlers */}
+      {/* Loading Skeleton */}
       {loading && !data && (
         <div className="flex h-64 items-center justify-center bg-sky-surface rounded-2xl border border-sky-border p-8 mb-6">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-sky-primary" />
             <p className="text-sky-text-secondary font-medium text-sm">
-              Computing climatological baseline & anomalies for {city}...
+              Computing 10-year climatological baselines, anomalies & multi-year comparisons for {city}...
             </p>
           </div>
         </div>
       )}
 
+      {/* Error Banner */}
       {error && (
         <Card className="border-red-200 bg-red-50/50 dark:bg-red-950/20 mb-6 p-5">
           <div className="flex items-start gap-3 text-red-600 dark:text-red-400">
@@ -271,8 +296,10 @@ export default function ClimatePage() {
 
       {data && (
         <>
-          {/* 1. SkyCast AI Climate Insight Briefing */}
-          <Card className="border-sky-ai/30 bg-gradient-to-r from-sky-ai/5 via-sky-primary/5 to-transparent mb-6 shadow-sm overflow-hidden relative">
+          {/* ========================================================================= */}
+          {/* 1. SKYCAST AI CLIMATE INTELLIGENCE BRIEFING                               */}
+          {/* ========================================================================= */}
+          <Card className="border-sky-ai/30 bg-gradient-to-r from-sky-ai/5 via-sky-primary/5 to-transparent mb-6 shadow-xs overflow-hidden relative">
             <div className="absolute top-0 right-0 p-3 opacity-15 pointer-events-none">
               <Sparkles className="h-24 w-24 text-sky-ai" />
             </div>
@@ -289,22 +316,24 @@ export default function ClimatePage() {
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-sky-text-secondary border-t border-sky-border/40 pt-3">
                 <span className="font-semibold text-sky-text-primary">
-                  Season: {seasonal.season || 'Current Period'}
+                  Season: {seasonal.currentSeason || seasonal.season || 'Southwest Monsoon'}
                 </span>
                 <span>•</span>
                 <span>Period: {data.startDate} to {data.endDate} ({summary.totalDays} Days)</span>
                 <span>•</span>
                 <span className="italic text-sky-text-secondary/80">
-                  Baseline: 10-Yr Reanalysis Normals (2014-2023)
+                  Climatological Baseline: 10-Year ERA5 Reanalysis Normals (2014–2023)
                 </span>
               </div>
             </CardContent>
           </Card>
 
-          {/* 2. Core Climatological KPI Metrics Grid */}
+          {/* ========================================================================= */}
+          {/* 2. CORE CONTEXTUAL CLIMATOLOGICAL KPIS (WHAT IS NORMAL & DELTAS)           */}
+          {/* ========================================================================= */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             
-            {/* KPI 1: Temperature & Baseline */}
+            {/* KPI 1: Mean Temperature vs Normal */}
             <Card className="border-sky-border bg-sky-surface shadow-xs hover:border-sky-primary/40 transition-colors">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
@@ -325,20 +354,23 @@ export default function ClimatePage() {
                   {summary.tempAnomaly >= 0 ? (
                     <span className="inline-flex items-center font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded-md border border-red-500/20">
                       <ArrowUpRight className="h-3.5 w-3.5 mr-0.5" />
-                      +{summary.tempAnomaly?.toFixed(1)}°C Anomaly
+                      +{summary.tempAnomaly?.toFixed(1)}°C vs normal
                     </span>
                   ) : (
                     <span className="inline-flex items-center font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20">
                       <ArrowDownRight className="h-3.5 w-3.5 mr-0.5" />
-                      {summary.tempAnomaly?.toFixed(1)}°C Anomaly
+                      {summary.tempAnomaly?.toFixed(1)}°C vs normal
                     </span>
                   )}
-                  <span className="text-sky-text-secondary/80 text-[11px]">vs normal</span>
+                </div>
+                <div className="mt-3 pt-2 border-t border-sky-border/40 text-[11px] text-sky-text-secondary flex justify-between">
+                  <span>Range: {summary.lowTemp?.toFixed(1)}° to {summary.peakTemp?.toFixed(1)}°</span>
+                  <span>Diurnal: {((summary.peakTemp || 0) - (summary.lowTemp || 0)).toFixed(1)}°C</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* KPI 2: Rainfall Accumulation & Departure */}
+            {/* KPI 2: Total Rainfall Accumulation vs Normal */}
             <Card className="border-sky-border bg-sky-surface shadow-xs hover:border-sky-primary/40 transition-colors">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
@@ -362,97 +394,108 @@ export default function ClimatePage() {
                     </span>
                   )}
                   <span className="text-sky-text-secondary/80 text-[11px]">
-                    ({summary.rainyDays || 0} wet days)
+                    vs normal
                   </span>
+                </div>
+                <div className="mt-3 pt-2 border-t border-sky-border/40 text-[11px] text-sky-text-secondary flex justify-between">
+                  <span>Departure: {summary.rainAnomalyMm > 0 ? '+' : ''}{summary.rainAnomalyMm?.toFixed(1)} mm</span>
+                  <span>{summary.rainyDays || 0} wet days</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* KPI 3: Thermal Extremes (Peak & Low) */}
+            {/* KPI 3: Hot Days vs Expected Baseline Normal */}
             <Card className="border-sky-border bg-sky-surface shadow-xs hover:border-sky-primary/40 transition-colors">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-sky-text-secondary uppercase tracking-wider">
-                    Observed Extremes
-                  </span>
-                  <div className="flex gap-1 text-sky-text-secondary">
-                    <TrendingUp className="h-3.5 w-3.5 text-red-500" />
-                    <TrendingDown className="h-3.5 w-3.5 text-blue-500" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <div>
-                    <span className="text-[11px] font-semibold text-sky-text-secondary block">Peak High</span>
-                    <span className="text-xl font-bold text-red-500 flex items-center">
-                      {summary.peakTemp?.toFixed(1) ?? '--'}°
-                    </span>
-                    <span className="text-[10px] text-sky-text-secondary truncate block">
-                      {summary.peakTempDate ? summary.peakTempDate.slice(5) : ''}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-semibold text-sky-text-secondary block">Min Low</span>
-                    <span className="text-xl font-bold text-blue-500 flex items-center">
-                      {summary.lowTemp?.toFixed(1) ?? '--'}°
-                    </span>
-                    <span className="text-[10px] text-sky-text-secondary truncate block">
-                      {summary.lowTempDate ? summary.lowTempDate.slice(5) : ''}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* KPI 4: Unusual Periods & Spells */}
-            <Card className="border-sky-border bg-sky-surface shadow-xs hover:border-sky-primary/40 transition-colors">
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-sky-text-secondary uppercase tracking-wider">
-                    Unusual Events & Spells
+                    Hot Days (Tmax ≥ 35°C)
                   </span>
                   <Flame className="h-4 w-4 text-amber-500" />
                 </div>
-                <div className="space-y-1.5 mt-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-sky-text-secondary">Unusually Hot Days:</span>
-                    <span className="font-bold text-sky-text-primary px-1.5 py-0.5 rounded bg-sky-surface-elevated">
-                      {extremes.unusuallyHotDays || 0}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-sky-text-secondary">Longest Dry Spell:</span>
-                    <span className="font-bold text-sky-text-primary px-1.5 py-0.5 rounded bg-sky-surface-elevated">
-                      {extremes.longestDrySpellDays || 0} days
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-sky-text-secondary">Heavy Rain Days (&gt;35mm):</span>
-                    <span className="font-bold text-sky-text-primary px-1.5 py-0.5 rounded bg-sky-surface-elevated">
-                      {extremes.heavyRainDays || 0}
-                    </span>
-                  </div>
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-3xl font-black text-sky-text-primary">
+                    {summary.hotDays ?? 0} <span className="text-sm font-semibold text-sky-text-secondary">days</span>
+                  </span>
+                  <span className="text-xs font-medium text-sky-text-secondary">
+                    Norm: {summary.baselineHotDays ?? 0} days
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className={`inline-flex items-center font-bold px-2 py-0.5 rounded-md border ${
+                    (summary.hotDaysAnomaly || 0) > 0 
+                      ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' 
+                      : 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20'
+                  }`}>
+                    {(summary.hotDaysAnomaly || 0) >= 0 ? `+${summary.hotDaysAnomaly || 0}` : summary.hotDaysAnomaly} vs normal
+                  </span>
+                  <span className="text-sky-text-secondary/80 text-[11px]">
+                    in selected window
+                  </span>
+                </div>
+                <div className="mt-3 pt-2 border-t border-sky-border/40 text-[11px] text-sky-text-secondary flex justify-between">
+                  <span>Peak: {summary.peakTemp?.toFixed(1)}°C</span>
+                  <span>{summary.peakTempDate ? summary.peakTempDate.slice(5) : ''}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* KPI 4: Rainy Days vs Expected Baseline Normal */}
+            <Card className="border-sky-border bg-sky-surface shadow-xs hover:border-sky-primary/40 transition-colors">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-sky-text-secondary uppercase tracking-wider">
+                    Rainy Days (≥ 1.0mm)
+                  </span>
+                  <Droplets className="h-4 w-4 text-sky-primary" />
+                </div>
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-3xl font-black text-sky-text-primary">
+                    {summary.rainyDays ?? 0} <span className="text-sm font-semibold text-sky-text-secondary">days</span>
+                  </span>
+                  <span className="text-xs font-medium text-sky-text-secondary">
+                    Norm: {summary.baselineRainyDays ?? 0} days
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className={`inline-flex items-center font-bold px-2 py-0.5 rounded-md border ${
+                    (summary.rainyDaysAnomaly || 0) >= 0 
+                      ? 'text-sky-primary bg-sky-primary/10 border-sky-primary/20' 
+                      : 'text-amber-500 bg-amber-500/10 border-amber-500/20'
+                  }`}>
+                    {(summary.rainyDaysAnomaly || 0) >= 0 ? `+${summary.rainyDaysAnomaly || 0}` : summary.rainyDaysAnomaly} vs normal
+                  </span>
+                  <span className="text-sky-text-secondary/80 text-[11px]">
+                    active rain days
+                  </span>
+                </div>
+                <div className="mt-3 pt-2 border-t border-sky-border/40 text-[11px] text-sky-text-secondary flex justify-between">
+                  <span>Dry Spell: {extremes.longestDrySpellDays || 0} days</span>
+                  <span>Wet Spell: {extremes.longestWetSpellDays || 0} days</span>
                 </div>
               </CardContent>
             </Card>
 
           </div>
 
-          {/* 3. Main Climatological Visualization Center */}
-          <Card className="border-sky-border bg-sky-surface shadow-sm mb-6">
+          {/* ========================================================================= */}
+          {/* 3. MAIN CLIMATOLOGICAL VISUALIZATION CENTER (ACTUAL VS BASELINE CHARTS)    */}
+          {/* ========================================================================= */}
+          <Card className="border-sky-border bg-sky-surface shadow-xs mb-8">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-sky-border/40 gap-3">
               <div>
                 <CardTitle className="text-lg font-bold text-sky-text-primary flex items-center gap-2">
-                  {activeChartTab === 'temperature' && 'Temperature Climatology: Actual vs 10-Year Normal'}
-                  {activeChartTab === 'rainfall' && 'Precipitation: Daily Observations vs Climatological Expectation'}
-                  {activeChartTab === 'anomalies' && 'Daily Temperature Anomaly Divergence (ΔT)'}
-                  {activeChartTab === 'cumulative' && 'Cumulative Rainfall Progression vs Normal Timeline'}
+                  {activeChartTab === 'temperature' && 'Temperature Climatology: Actual vs 10-Year Normal Baseline'}
+                  {activeChartTab === 'rainfall' && 'Precipitation Analysis: Daily Observations vs Normal Expectation'}
+                  {activeChartTab === 'anomalies' && 'Daily Temperature Anomaly Divergence (ΔT from Baseline)'}
+                  {activeChartTab === 'cumulative' && 'Cumulative Rainfall Progression vs Normal Climatological Timeline'}
                 </CardTitle>
                 <CardDescription className="text-xs text-sky-text-secondary mt-0.5">
                   Synchronized day-by-day meteorological trajectory aligned with historical averages
                 </CardDescription>
               </div>
 
-              {/* Chart View Toggle Tabs */}
+              {/* View Selection Toggle */}
               <div className="flex items-center gap-1 bg-sky-surface-elevated p-1 rounded-lg border border-sky-border shrink-0">
                 <Button
                   variant="ghost"
@@ -506,10 +549,10 @@ export default function ClimatePage() {
             </CardHeader>
 
             <CardContent className="pt-6">
-              <div className="h-[360px] w-full">
+              <div className="h-[380px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   
-                  {/* View 1: Temperature Actual vs Normal */}
+                  {/* View 1: Temperature Actual vs Baseline Normal with Diurnal Envelope */}
                   {activeChartTab === 'temperature' && (
                     <ComposedChart data={timeseries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
@@ -563,8 +606,8 @@ export default function ClimatePage() {
                         dataKey="actualMaxTemp" 
                         name="Daily Max Peak" 
                         stroke="#ef4444" 
-                        strokeWidth={1}
-                        strokeOpacity={0.6}
+                        strokeWidth={1.5}
+                        strokeOpacity={0.7}
                         dot={false}
                       />
                       <Line 
@@ -572,14 +615,14 @@ export default function ClimatePage() {
                         dataKey="actualMinTemp" 
                         name="Daily Min Low" 
                         stroke="#3b82f6" 
-                        strokeWidth={1}
-                        strokeOpacity={0.6}
+                        strokeWidth={1.5}
+                        strokeOpacity={0.7}
                         dot={false}
                       />
                     </ComposedChart>
                   )}
 
-                  {/* View 2: Rainfall Daily vs Normal */}
+                  {/* View 2: Rainfall Observations vs Baseline */}
                   {activeChartTab === 'rainfall' && (
                     <ComposedChart data={timeseries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
@@ -621,7 +664,7 @@ export default function ClimatePage() {
                     </ComposedChart>
                   )}
 
-                  {/* View 3: Temperature Anomalies Divergence */}
+                  {/* View 3: Temperature Anomalies Divergence (Red / Blue) */}
                   {activeChartTab === 'anomalies' && (
                     <ComposedChart data={timeseries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
@@ -647,7 +690,7 @@ export default function ClimatePage() {
                       <Legend verticalAlign="top" height={36} iconType="circle" />
                       <Bar 
                         dataKey="tempAnomaly" 
-                        name="Anomaly vs Normal" 
+                        name="Anomaly vs Normal (Red = Warmer, Blue = Cooler)" 
                         shape={(props: any) => {
                           const { x, y, width, height, value } = props;
                           const fill = value >= 0 ? '#ef4444' : '#3b82f6';
@@ -658,7 +701,7 @@ export default function ClimatePage() {
                     </ComposedChart>
                   )}
 
-                  {/* View 4: Cumulative Rainfall Progression */}
+                  {/* View 4: Cumulative Rainfall Progression vs Normal Timeline */}
                   {activeChartTab === 'cumulative' && (
                     <ComposedChart data={timeseries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
@@ -706,20 +749,253 @@ export default function ClimatePage() {
             </CardContent>
           </Card>
 
-          {/* 4. Extremes & Significant Events Timeline */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+          {/* ========================================================================= */}
+          {/* 4. YEAR-OVER-YEAR HISTORICAL COMPARISON MATRIX                            */}
+          {/* ========================================================================= */}
+          <Card className="border-sky-border bg-sky-surface shadow-xs mb-8">
+            <CardHeader className="pb-3 border-b border-sky-border/40">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-bold text-sky-text-primary flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-sky-primary" />
+                    Multi-Year Climatological Comparison Matrix
+                  </CardTitle>
+                  <CardDescription className="text-xs text-sky-text-secondary mt-0.5">
+                    Benchmarking the exact calendar window ({data.startDate.slice(5)} to {data.endDate.slice(5)}) across recent years and 10-year normals
+                  </CardDescription>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-sky-surface-elevated border border-sky-border text-sky-text-secondary">
+                  Same Calendar Dates
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-sky-border/60 text-sky-text-secondary font-bold uppercase tracking-wider">
+                      <th className="py-2.5 px-3">Period / Year</th>
+                      <th className="py-2.5 px-3">Mean Temp</th>
+                      <th className="py-2.5 px-3">Total Rainfall</th>
+                      <th className="py-2.5 px-3">Rainy Days</th>
+                      <th className="py-2.5 px-3">Hot Days (≥35°)</th>
+                      <th className="py-2.5 px-3">Peak Temp</th>
+                      <th className="py-2.5 px-3">Climate Departure</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-sky-border/30">
+                    {yearsComparison.map((row: any, idx: number) => {
+                      const isCurrent = row.isCurrent;
+                      return (
+                        <tr 
+                          key={idx} 
+                          className={`transition-colors ${
+                            isCurrent 
+                              ? 'bg-sky-primary/10 font-bold text-sky-text-primary' 
+                              : 'hover:bg-sky-surface-elevated/50 text-sky-text-secondary'
+                          }`}
+                        >
+                          <td className="py-3 px-3 flex items-center gap-2">
+                            {isCurrent && (
+                              <span className="h-2 w-2 rounded-full bg-sky-primary animate-pulse" />
+                            )}
+                            <span className={isCurrent ? 'text-sky-primary font-bold' : 'font-medium'}>
+                              {row.label}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 font-semibold text-sky-text-primary">
+                            {row.avgTemp != null ? `${row.avgTemp.toFixed(1)}°C` : '--'}
+                          </td>
+                          <td className="py-3 px-3 font-semibold text-sky-text-primary">
+                            {row.totalRain != null ? `${row.totalRain.toFixed(1)} mm` : '--'}
+                          </td>
+                          <td className="py-3 px-3">
+                            {row.rainyDays ?? '--'} days
+                          </td>
+                          <td className="py-3 px-3">
+                            {row.hotDays ?? 0} days
+                          </td>
+                          <td className="py-3 px-3">
+                            {row.peakTemp != null ? `${row.peakTemp.toFixed(1)}°C` : '--'}
+                          </td>
+                          <td className="py-3 px-3">
+                            {row.year === 'Normal' ? (
+                              <span className="text-[11px] font-mono text-sky-text-secondary">
+                                Reference Baseline
+                              </span>
+                            ) : row.totalRain != null && summary.baselineRainTotal ? (
+                              <span className={`inline-flex items-center text-[11px] font-bold px-1.5 py-0.5 rounded ${
+                                row.totalRain >= summary.baselineRainTotal * 1.2
+                                  ? 'text-sky-primary bg-sky-primary/10'
+                                  : row.totalRain <= summary.baselineRainTotal * 0.8
+                                  ? 'text-amber-500 bg-amber-500/10'
+                                  : 'text-emerald-500 bg-emerald-500/10'
+                              }`}>
+                                {row.totalRain >= summary.baselineRainTotal * 1.2 ? 'Excess Rain' :
+                                 row.totalRain <= summary.baselineRainTotal * 0.8 ? 'Deficient Rain' : 'Normal'}
+                              </span>
+                            ) : '--'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ========================================================================= */}
+          {/* 5. SEASONAL PATTERNS & 4 INDIAN METEOROLOGICAL SEASONS                     */}
+          {/* ========================================================================= */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            
+            {/* 12-Month Climatological Annual Cycle Chart */}
+            <Card className="lg:col-span-2 border-sky-border bg-sky-surface shadow-xs">
+              <CardHeader className="pb-2 border-b border-sky-border/40">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-bold text-sky-text-primary flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-sky-primary" />
+                      12-Month Normal Climatological Cycle
+                    </CardTitle>
+                    <CardDescription className="text-xs text-sky-text-secondary">
+                      Long-term average monthly rainfall and temperature distribution across the year
+                    </CardDescription>
+                  </div>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-sky-surface-elevated text-sky-text-secondary">
+                    Annual Rain: {seasonal.annualNormalRain || 0}mm
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="h-[260px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={seasonal.months || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                      <XAxis 
+                        dataKey="month" 
+                        tickLine={false} 
+                        axisLine={false} 
+                        tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} 
+                      />
+                      <YAxis 
+                        yAxisId="rain"
+                        orientation="left"
+                        tickLine={false} 
+                        axisLine={false} 
+                        tick={{ fill: 'var(--text-secondary)', fontSize: 10 }}
+                        tickFormatter={(val) => `${val}mm`}
+                      />
+                      <YAxis 
+                        yAxisId="temp"
+                        orientation="right"
+                        domain={['dataMin - 3', 'dataMax + 3']}
+                        tickLine={false} 
+                        axisLine={false} 
+                        tick={{ fill: 'var(--text-secondary)', fontSize: 10 }}
+                        tickFormatter={(val) => `${val}°`}
+                      />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: '10px' }}
+                        formatter={(value: any, name: any) => [
+                          name.includes('Rain') ? `${value} mm` : `${value}°C`,
+                          name
+                        ]}
+                      />
+                      <Legend verticalAlign="top" height={30} iconType="circle" />
+                      <Bar 
+                        yAxisId="rain" 
+                        dataKey="normalRain" 
+                        name="Normal Monthly Rain" 
+                        fill="var(--accent)" 
+                        radius={[3, 3, 0, 0]} 
+                      />
+                      <Line 
+                        yAxisId="temp" 
+                        type="monotone" 
+                        dataKey="normalMeanTemp" 
+                        name="Normal Mean Temp" 
+                        stroke="#ef4444" 
+                        strokeWidth={2} 
+                        dot={{ r: 3 }} 
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Indian Seasons Grid (4 Meteorological Seasons) */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-sky-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                <Sun className="h-4 w-4 text-amber-500" />
+                4 Indian Meteorological Seasons
+              </h3>
+              
+              {(seasonal.seasons || []).map((s: any) => (
+                <div 
+                  key={s.id}
+                  className={`p-3 rounded-xl border text-xs transition-all ${
+                    s.isActive 
+                      ? 'bg-sky-primary/10 border-sky-primary/40 shadow-xs' 
+                      : 'bg-sky-surface border-sky-border/60 hover:border-sky-border'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-sky-text-primary text-sm flex items-center gap-1.5">
+                      {s.name}
+                      {s.isActive && (
+                        <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-sky-primary text-white">
+                          Current Season
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-sky-text-secondary text-[11px] font-mono">
+                      {s.months}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sky-text-secondary text-[11px] mb-1.5">
+                    <span>Temp: <strong className="text-sky-text-primary">{s.normalMeanTemp}°C</strong></span>
+                    <span>•</span>
+                    <span>Rain: <strong className="text-sky-text-primary">{s.normalTotalRain}mm</strong></span>
+                    <span>•</span>
+                    <span>Rainy Days: <strong className="text-sky-text-primary">{s.normalRainyDays}</strong></span>
+                  </div>
+                  <p className="text-[11px] text-sky-text-secondary leading-snug line-clamp-2">
+                    {s.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+          </div>
+
+          {/* ========================================================================= */}
+          {/* 6. DETECTED EXTREME EVENTS & METEOROLOGICAL THRESHOLDS                    */}
+          {/* ========================================================================= */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             
             <Card className="lg:col-span-2 border-sky-border bg-sky-surface shadow-xs">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold text-sky-text-primary flex items-center gap-2">
-                  <Flame className="h-4 w-4 text-amber-500" />
-                  Detected Climatological Threshold Breaches & Events
-                </CardTitle>
-                <CardDescription className="text-xs text-sky-text-secondary">
-                  Statistically significant deviations from local 10-year normals during this period
-                </CardDescription>
+              <CardHeader className="pb-3 border-b border-sky-border/40">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-bold text-sky-text-primary flex items-center gap-2">
+                      <Flame className="h-4 w-4 text-amber-500" />
+                      Detected Climatological Threshold Breaches & Events
+                    </CardTitle>
+                    <CardDescription className="text-xs text-sky-text-secondary">
+                      Statistically significant deviations from local 10-year normals during this period
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-xs px-2 py-1 rounded bg-sky-surface-elevated font-semibold text-sky-text-secondary border border-sky-border">
+                      {extremes.events?.length || 0} Breaches
+                    </span>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-4">
                 {extremes.events && extremes.events.length > 0 ? (
                   <div className="space-y-2.5">
                     {extremes.events.map((evt: any, idx: number) => (
@@ -759,7 +1035,7 @@ export default function ClimatePage() {
 
             {/* Quick Context & Export Card */}
             <Card className="border-sky-border bg-sky-surface shadow-xs flex flex-col justify-between">
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-3 border-b border-sky-border/40">
                 <CardTitle className="text-base font-bold text-sky-text-primary flex items-center gap-2">
                   <Info className="h-4 w-4 text-sky-primary" />
                   Meteorological Reference
@@ -768,11 +1044,11 @@ export default function ClimatePage() {
                   Standards and baseline methodology
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4 text-xs text-sky-text-secondary">
+              <CardContent className="pt-4 space-y-3.5 text-xs text-sky-text-secondary">
                 <div>
                   <span className="font-semibold text-sky-text-primary block mb-1">Climatological Normal</span>
                   <p className="text-[11px] leading-relaxed">
-                    Baselines are computed from ECMWF ERA5 reanalysis over 2014-2023. Daily averages define what is typical for each calendar date.
+                    Baselines are computed from ECMWF ERA5 reanalysis over 2014–2023. Daily averages define what is typical for each calendar date.
                   </p>
                 </div>
                 <div>
@@ -795,6 +1071,115 @@ export default function ClimatePage() {
             </Card>
 
           </div>
+
+          {/* ========================================================================= */}
+          {/* 7. SECONDARY DRILL-DOWN: RECENT HOURLY SYNOPTIC OBSERVATIONS (48 HOURS)   */}
+          {/* ========================================================================= */}
+          {recentHourly && recentHourly.length > 0 && (
+            <Card className="border-sky-border bg-sky-surface shadow-xs mb-8 overflow-hidden">
+              <div 
+                onClick={() => setShowRecentDrilldown(!showRecentDrilldown)}
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-sky-surface-elevated/40 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="p-2 rounded-lg bg-sky-primary/10 text-sky-primary">
+                    <Clock className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <h3 className="font-bold text-sm text-sky-text-primary flex items-center gap-2">
+                      Recent Synoptic Observations (Hourly Drill-Down)
+                      <span className="text-[11px] font-normal text-sky-text-secondary">
+                        (48 Hours)
+                      </span>
+                    </h3>
+                    <p className="text-xs text-sky-text-secondary">
+                      Drill down into recent hourly station records without leaving climate context
+                    </p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" className="text-sky-text-secondary">
+                  {showRecentDrilldown ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              {showRecentDrilldown && (
+                <div className="p-4 border-t border-sky-border/40 animate-in fade-in">
+                  <div className="h-[240px] w-full mb-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={recentHourly} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                        <XAxis 
+                          dataKey="time" 
+                          tickLine={false} 
+                          axisLine={false} 
+                          tick={{ fill: 'var(--text-secondary)', fontSize: 10 }}
+                          tickFormatter={(val) => val.slice(11, 16)} 
+                          minTickGap={20}
+                        />
+                        <YAxis 
+                          tickLine={false} 
+                          axisLine={false} 
+                          tick={{ fill: 'var(--text-secondary)', fontSize: 10 }}
+                          tickFormatter={(val) => `${val}°`}
+                        />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)', borderRadius: '10px' }}
+                          formatter={(value: any, name: any) => [`${value}°C`, name]}
+                        />
+                        <Legend verticalAlign="top" height={30} iconType="circle" />
+                        <Line 
+                          type="monotone" 
+                          dataKey="temperature" 
+                          name="Hourly Temperature" 
+                          stroke="var(--accent)" 
+                          strokeWidth={2}
+                          dot={false}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="dewpoint" 
+                          name="Dewpoint" 
+                          stroke="#38bdf8" 
+                          strokeWidth={1.5}
+                          strokeDasharray="2 2"
+                          dot={false}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Hourly stats summary chips */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="p-2.5 rounded-lg bg-sky-surface-elevated border border-sky-border/50">
+                      <span className="text-[11px] text-sky-text-secondary block">Latest Hourly Temp</span>
+                      <span className="font-bold text-sky-text-primary text-base">
+                        {recentHourly[recentHourly.length - 1]?.temperature?.toFixed(1)}°C
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-sky-surface-elevated border border-sky-border/50">
+                      <span className="text-[11px] text-sky-text-secondary block">Relative Humidity</span>
+                      <span className="font-bold text-sky-text-primary text-base">
+                        {recentHourly[recentHourly.length - 1]?.humidity}%
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-sky-surface-elevated border border-sky-border/50">
+                      <span className="text-[11px] text-sky-text-secondary block">Wind Speed</span>
+                      <span className="font-bold text-sky-text-primary text-base">
+                        {recentHourly[recentHourly.length - 1]?.windSpeed?.toFixed(1)} km/h
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-sky-surface-elevated border border-sky-border/50">
+                      <span className="text-[11px] text-sky-text-secondary block">Latest Timestamp</span>
+                      <span className="font-mono text-[11px] text-sky-text-primary">
+                        {recentHourly[recentHourly.length - 1]?.time}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
         </>
       )}
 
