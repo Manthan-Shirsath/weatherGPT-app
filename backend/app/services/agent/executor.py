@@ -29,7 +29,11 @@ from backend.app.services.agent.schemas import (
     ClimateResearchArgs,
     AviationArgs,
     MarineArgs,
-    ModelComparisonArgs
+    ModelComparisonArgs,
+    CreateMonitorArgs,
+    ListMonitorsArgs,
+    DisableMonitorArgs,
+    ExplainAlertArgs
 )
 from backend.app.services.agent.tools import (
     search_location_tool,
@@ -51,7 +55,11 @@ from backend.app.services.agent.tools import (
     get_climate_summary_tool,
     get_aviation_reports_tool,
     get_marine_forecast_tool,
-    compare_models_tool
+    compare_models_tool,
+    create_weather_monitor_tool,
+    list_weather_monitors_tool,
+    disable_weather_monitor_tool,
+    explain_weather_alert_tool
 )
 
 logger = logging.getLogger("skycast.agent.executor")
@@ -77,6 +85,10 @@ TOOL_REGISTRY: Dict[str, Tuple[Type[BaseModel], Any]] = {
     "get_aviation_reports": (AviationArgs, get_aviation_reports_tool),
     "get_marine_forecast": (MarineArgs, get_marine_forecast_tool),
     "compare_models": (ModelComparisonArgs, compare_models_tool),
+    "create_weather_monitor": (CreateMonitorArgs, create_weather_monitor_tool),
+    "list_weather_monitors": (ListMonitorsArgs, list_weather_monitors_tool),
+    "disable_weather_monitor": (DisableMonitorArgs, disable_weather_monitor_tool),
+    "explain_weather_alert": (ExplainAlertArgs, explain_weather_alert_tool),
 }
 
 DEFAULT_TOOL_TIMEOUT_SECONDS = 15.0

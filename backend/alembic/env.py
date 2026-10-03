@@ -31,6 +31,7 @@ from backend.app.models.weather_snapshot import Base
 import backend.app.models.chat
 import backend.app.models.subscription
 import backend.app.models.core
+import backend.app.models.monitor
 
 target_metadata = Base.metadata
 

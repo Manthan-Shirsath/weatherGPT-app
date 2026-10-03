@@ -74,11 +74,13 @@ export function useWeatherWebSocket(city: string) {
           }
 
           if (
-            ['alert.created', 'alert.updated', 'alert.resolved'].includes(data.type) &&
-            data.city?.toLowerCase() === city.toLowerCase()
+            ['alert.created', 'alert.updated', 'alert.resolved', 'monitor.created', 'monitor.updated', 'monitor.disabled'].includes(data.type) &&
+            (!data.city || data.city?.toLowerCase() === city.toLowerCase())
           ) {
             queryClient.invalidateQueries({ queryKey: ['weather', 'alerts', city] });
             queryClient.invalidateQueries({ queryKey: ['weather', 'dashboard', city] });
+            queryClient.invalidateQueries({ queryKey: ['alerts'] });
+            queryClient.invalidateQueries({ queryKey: ['monitors'] });
 
             // Dispatch custom event for toast notifications
             window.dispatchEvent(

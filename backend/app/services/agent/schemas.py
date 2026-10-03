@@ -129,6 +129,27 @@ class MarineArgs(BaseModel):
     lat: Optional[float] = Field(None, description="Optional latitude")
     lon: Optional[float] = Field(None, description="Optional longitude")
 
+class CreateMonitorArgs(BaseModel):
+    location: str = Field(..., description="Location to monitor (e.g. 'Nashik', 'Pune', 'Mumbai')")
+    rule_type: str = Field(..., description="Rule type: 'rain_probability', 'temperature', 'wind', 'precipitation', 'weather_alert', 'forecast_change'")
+    metric: str = Field(..., description="Metric name: 'rain_probability', 'temperature_c', 'wind_speed_kmh', 'precipitation_mm', 'active_alert', 'forecast_change'")
+    operator: str = Field(..., description="Operator: '>', '<', '==', 'change_gt'")
+    threshold: float = Field(..., description="Numeric threshold value")
+    time_window: Optional[str] = Field("all_day", description="Time window: 'today', 'tomorrow', 'morning', 'afternoon', 'evening', 'all_day', 'next_24h'")
+    severity: Optional[str] = Field("warning", description="Severity level: 'info', 'caution', 'warning', 'critical'")
+
+class ListMonitorsArgs(BaseModel):
+    location: Optional[str] = Field(None, description="Optional city name to filter standing monitors")
+
+class DisableMonitorArgs(BaseModel):
+    monitor_id: Optional[str] = Field(None, description="ID of the monitor to disable")
+    location: Optional[str] = Field(None, description="Location of monitor to disable if monitor_id not known")
+    rule_type: Optional[str] = Field(None, description="Rule type to disable (e.g. 'wind', 'rain_probability')")
+
+class ExplainAlertArgs(BaseModel):
+    alert_id: Optional[str] = Field(None, description="ID of the triggered alert to explain")
+    location: Optional[str] = Field(None, description="Location of the alert to explain if alert_id is not known")
+
 # ==============================================================================
 # Tool Execution Output Envelope
 # ==============================================================================
@@ -163,7 +184,9 @@ SUPPORTED_CARD_TYPES = {
     "rain_timeline",
     "weather_summary",
     "forecast_timeline",
-    "decision"
+    "decision",
+    "monitor",
+    "triggered_alert"
 }
 
 class CardItem(BaseModel):

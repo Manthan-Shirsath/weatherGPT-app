@@ -22,7 +22,10 @@ def _map_tool_to_card_type(tool_name: str) -> Optional[str]:
         "compare_dates": "date_comparison",
         "compare_models": "date_comparison",
         "show_weather_alert": "weather_alert",
-        "analyze_rain": "rain_timeline"
+        "analyze_rain": "rain_timeline",
+        "create_weather_monitor": "monitor",
+        "list_weather_monitors": "monitor",
+        "explain_weather_alert": "triggered_alert"
     }
     return mapping.get(tool_name)
 

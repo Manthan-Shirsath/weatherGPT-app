@@ -52,6 +52,7 @@ from backend.app.routes.recommendations import router as recommendations_router
 from backend.app.routes.system import router as system_router
 from backend.app.routes.forecast_intelligence import router as forecast_intelligence_router
 from backend.app.routes.monitoring import router as monitoring_router
+from backend.app.routes.monitors import router as monitors_router
 
 # Configure logging format
 logging.basicConfig(
@@ -109,6 +110,7 @@ app.include_router(recommendations_router)
 app.include_router(system_router)
 app.include_router(forecast_intelligence_router)
 app.include_router(monitoring_router)
+app.include_router(monitors_router)
 
 def ensure_single_instance(host: str = "127.0.0.1", port: int = 8000) -> bool:
     """

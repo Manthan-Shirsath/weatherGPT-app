@@ -16,6 +16,19 @@ export const weatherKeys = {
   forecast: (city: string) => ['weather', 'forecast', city] as const,
 };
 
+export const monitorKeys = {
+  all: ['monitors'] as const,
+  list: (location?: string) => ['monitors', 'list', location || 'all'] as const,
+  detail: (id: string) => ['monitors', 'detail', id] as const,
+};
+
+export const alertKeys = {
+  all: ['alerts'] as const,
+  active: (location?: string) => ['alerts', 'active', location || 'all'] as const,
+  history: (location?: string) => ['alerts', 'history', location || 'all'] as const,
+  detail: (id: string) => ['alerts', 'detail', id] as const,
+};
+
 export const chatKeys = {
   all: ['chat'] as const,
   session: (sessionId: string) => ['chat', 'session', sessionId] as const,
@@ -118,3 +131,58 @@ export function useWeatherGPT() {
       weatherApi.chat(message, city, [], { session_id, agent_mode, ...context }),
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Weather Monitor & Alert Hooks
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function useMonitors(location?: string, enabledOnly?: boolean) {
+  return useQuery({
+    queryKey: monitorKeys.list(location),
+    queryFn: () => weatherApi.getMonitors(location, enabledOnly),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useTriggeredAlerts(location?: string, status?: string) {
+  return useQuery({
+    queryKey: status === 'active' ? alertKeys.active(location) : alertKeys.history(location),
+    queryFn: () => weatherApi.getTriggeredAlerts(location, status),
+    staleTime: 15 * 1000,
+  });
+}
+
+export function useCreateMonitor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => weatherApi.createMonitor(data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: monitorKeys.all });
+      if (variables?.location) {
+        queryClient.invalidateQueries({ queryKey: monitorKeys.list(variables.location) });
+      }
+    },
+  });
+}
+
+export function useUpdateMonitor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: { enabled?: boolean; threshold?: number } }) =>
+      weatherApi.updateMonitor(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: monitorKeys.all });
+    },
+  });
+}
+
+export function useDeleteMonitor() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => weatherApi.deleteMonitor(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: monitorKeys.all });
+    },
+  });
+}
+

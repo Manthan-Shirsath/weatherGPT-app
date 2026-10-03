@@ -67,6 +67,18 @@ CRITICAL OPERATIONAL RULES:
     - If precipitation probability is high (e.g., >50%) but the expected total rainfall is 0mm or <0.1mm, you MUST explicitly explain this in your FIRST response using simple, conversational language.
     - Example: "There is a 74% chance of a brief, very light drizzle today, but it won't be enough to measure (0mm), so it shouldn't ruin your outdoor plans."
     - Never just output the raw numbers without explaining that high chance + 0mm means virtually no impact.
+
+11. PERSISTENT WEATHER MONITORING & EXPLAINABLE ALERTS:
+    - When a user requests an alert or monitor (e.g. "Alert me if rain probability tomorrow goes above 70%", "Monitor wind speed above 30 km/h in Pune", "Alert me if temperature > 40°C"):
+      * Confirm or extract location (ask if missing or ambiguous: "Which location would you like me to monitor?").
+      * Extract metric, operator, threshold, and time window.
+      * Invoke `create_weather_monitor(location=..., rule_type=..., metric=..., operator=..., threshold=..., time_window=...)`.
+    - When asked "What monitors do I have active?" or "Check my alerts":
+      * Invoke `list_weather_monitors(location=...)`.
+    - When asked "Disable my rain alert":
+      * Invoke `disable_weather_monitor(location=..., rule_type=...)`.
+    - When asked "Why did I get this alert?":
+      * Invoke `explain_weather_alert(location=...)` to retrieve the structured auditable explanation. Never guess or fabricate an explanation later.
 """
 
 GEMINI_TOOLS_DECLARATION = [
@@ -440,6 +452,100 @@ GEMINI_TOOLS_DECLARATION = [
                 }
             },
             "required": ["location"]
+        }
+    },
+    {
+        "name": "create_weather_monitor",
+        "description": "Creates a persistent weather monitoring rule for a location (e.g. rain probability > 70%, temperature > 40°C, wind speed > 30 km/h).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "The city or location name to monitor."
+                },
+                "rule_type": {
+                    "type": "string",
+                    "enum": ["rain_probability", "temperature", "wind", "precipitation", "weather_alert", "forecast_change"],
+                    "description": "The type of condition to monitor."
+                },
+                "metric": {
+                    "type": "string",
+                    "enum": ["rain_probability", "temperature_c", "wind_speed_kmh", "precipitation_mm", "active_alert", "forecast_change"],
+                    "description": "The meteorological metric to measure."
+                },
+                "operator": {
+                    "type": "string",
+                    "enum": [">", "<", "==", "change_gt"],
+                    "description": "Comparison operator."
+                },
+                "threshold": {
+                    "type": "number",
+                    "description": "Numeric threshold value (e.g., 70 for 70%, 40 for 40°C)."
+                },
+                "time_window": {
+                    "type": "string",
+                    "enum": ["today", "tomorrow", "morning", "afternoon", "evening", "all_day", "next_24h"],
+                    "description": "Time window to evaluate."
+                },
+                "severity": {
+                    "type": "string",
+                    "enum": ["info", "caution", "warning", "critical"],
+                    "description": "Severity level."
+                }
+            },
+            "required": ["location", "rule_type", "metric", "operator", "threshold"]
+        }
+    },
+    {
+        "name": "list_weather_monitors",
+        "description": "Lists all standing active weather monitors, optionally filtered by location.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "Optional city name to filter active monitors."
+                }
+            }
+        }
+    },
+    {
+        "name": "disable_weather_monitor",
+        "description": "Disables and removes a persistent weather monitor by ID or by location and rule type.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "monitor_id": {
+                    "type": "string",
+                    "description": "Optional ID of the monitor to disable."
+                },
+                "location": {
+                    "type": "string",
+                    "description": "Optional city name where the monitor was placed."
+                },
+                "rule_type": {
+                    "type": "string",
+                    "description": "Optional rule type to disable (e.g. 'wind', 'rain_probability')."
+                }
+            }
+        }
+    },
+    {
+        "name": "explain_weather_alert",
+        "description": "Retrieves the exact auditable record explaining 'Why did I get this alert?', showing observed forecast value, threshold, and timestamp.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "alert_id": {
+                    "type": "string",
+                    "description": "Optional ID of the triggered alert."
+                },
+                "location": {
+                    "type": "string",
+                    "description": "Optional city name to retrieve the latest alert explanation for."
+                }
+            }
         }
     }
 ]

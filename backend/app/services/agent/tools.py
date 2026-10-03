@@ -33,7 +33,11 @@ from backend.app.services.agent.schemas import (
     ClimateResearchArgs,
     AviationArgs,
     MarineArgs,
-    ModelComparisonArgs
+    ModelComparisonArgs,
+    CreateMonitorArgs,
+    ListMonitorsArgs,
+    DisableMonitorArgs,
+    ExplainAlertArgs
 )
 
 logger = logging.getLogger("skycast.agent.tools")
@@ -833,5 +837,133 @@ async def compare_models_tool(args: ModelComparisonArgs) -> Dict[str, Any]:
         models=args.models,
         target_date_iso=target_date_iso
     )
+
+
+# ==============================================================================
+# Tool 20: create_weather_monitor (Persistent Monitoring)
+# ==============================================================================
+
+async def create_weather_monitor_tool(args: CreateMonitorArgs) -> Dict[str, Any]:
+    """
+    Creates a persistent, deterministic weather monitoring rule.
+    Validates criteria (metric, operator, bounds, location) and persists rule in database.
+    """
+    from backend.app.services.monitor_engine import MonitorEvaluationEngine, validate_monitor_rule
+
+    loc_clean = args.location.strip()
+    if not loc_clean:
+        return {"error": "Location is required to create a weather monitor."}
+
+    is_valid, err_msg = validate_monitor_rule(
+        location=loc_clean,
+        rule_type=args.rule_type,
+        metric=args.metric,
+        operator=args.operator,
+        threshold=args.threshold,
+        time_window=args.time_window,
+        severity=args.severity
+    )
+    if not is_valid:
+        return {"error": f"Invalid monitoring rule: {err_msg}"}
+
+    monitor, err = await MonitorEvaluationEngine.create_monitor(
+        location=loc_clean,
+        rule_type=args.rule_type,
+        metric=args.metric,
+        operator=args.operator,
+        threshold=args.threshold,
+        time_window=args.time_window or "all_day",
+        severity=args.severity or "warning"
+    )
+
+    if err or not monitor:
+        return {"error": err or "Failed to create weather monitor."}
+
+    return {
+        "success": True,
+        "message": f"Successfully created persistent weather monitor for {monitor.location}.",
+        "monitor": monitor.to_dict(),
+        "disclaimer": "Automated monitoring provides decision-support based on numerical models. Follow official warnings for emergency decisions."
+    }
+
+
+# ==============================================================================
+# Tool 21: list_weather_monitors (Standing Rule Inspection)
+# ==============================================================================
+
+async def list_weather_monitors_tool(args: ListMonitorsArgs) -> Dict[str, Any]:
+    """
+    Retrieves all standing persistent weather monitors, optionally filtered by city.
+    """
+    from backend.app.services.monitor_engine import MonitorEvaluationEngine
+
+    monitors = await MonitorEvaluationEngine.list_monitors(location=args.location)
+    return {
+        "count": len(monitors),
+        "monitors": [m.to_dict() for m in monitors]
+    }
+
+
+# ==============================================================================
+# Tool 22: disable_weather_monitor (Disable/Delete Rule)
+# ==============================================================================
+
+async def disable_weather_monitor_tool(args: DisableMonitorArgs) -> Dict[str, Any]:
+    """
+    Disables or removes an existing weather monitor.
+    """
+    from backend.app.services.monitor_engine import MonitorEvaluationEngine
+
+    if args.monitor_id:
+        success = await MonitorEvaluationEngine.delete_monitor(args.monitor_id)
+        if success:
+            return {"success": True, "message": f"Monitor {args.monitor_id} disabled and removed."}
+        return {"error": f"Could not find or disable monitor with ID {args.monitor_id}."}
+
+    if args.location:
+        monitors = await MonitorEvaluationEngine.list_monitors(location=args.location)
+        if args.rule_type:
+            monitors = [m for m in monitors if m.rule_type == args.rule_type]
+
+        if not monitors:
+            return {"error": f"No active monitors found for {args.location}" + (f" with rule {args.rule_type}" if args.rule_type else "")}
+
+        deleted_count = 0
+        for m in monitors:
+            if await MonitorEvaluationEngine.delete_monitor(m.id):
+                deleted_count += 1
+
+        return {"success": True, "message": f"Disabled {deleted_count} monitor(s) for {args.location}."}
+
+    return {"error": "Either monitor_id or location must be provided to disable a monitor."}
+
+
+# ==============================================================================
+# Tool 23: explain_weather_alert ("Why did I get this alert?")
+# ==============================================================================
+
+async def explain_weather_alert_tool(args: ExplainAlertArgs) -> Dict[str, Any]:
+    """
+    Returns the auditable explanation of why an alert triggered, preserving observed values and thresholds.
+    """
+    from backend.app.services.monitor_engine import MonitorEvaluationEngine
+
+    if args.alert_id:
+        alert = await MonitorEvaluationEngine.get_triggered_alert(args.alert_id)
+        if not alert:
+            return {"error": f"Alert {args.alert_id} not found."}
+        return {"alert": alert.to_dict()}
+
+    if args.location:
+        alerts = await MonitorEvaluationEngine.list_triggered_alerts(location=args.location, limit=1)
+        if not alerts:
+            return {"message": f"No triggered alerts recorded for {args.location}."}
+        return {"alert": alerts[0].to_dict()}
+
+    alerts = await MonitorEvaluationEngine.list_triggered_alerts(limit=1)
+    if not alerts:
+        return {"message": "No triggered alerts recorded."}
+    return {"alert": alerts[0].to_dict()}
+
 
 

@@ -46,6 +46,47 @@ async function fetchWithHandler(url: string, options?: RequestInit) {
   }
 }
 
+export interface WeatherMonitorItem {
+  id: string;
+  user_id?: string;
+  session_id?: string;
+  location: string;
+  rule_type: string;
+  metric: string;
+  operator: string;
+  threshold: number;
+  secondary_threshold?: number;
+  time_window?: string;
+  severity: 'info' | 'caution' | 'warning' | 'critical';
+  enabled: boolean;
+  state: 'active' | 'triggered' | 'resolved' | 'disabled';
+  last_evaluated_at?: string;
+  last_triggered_at?: string;
+  last_resolved_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TriggeredAlertItem {
+  id: string;
+  monitor_id: string;
+  user_id?: string;
+  session_id?: string;
+  location: string;
+  rule_type: string;
+  severity: string;
+  condition_desc: string;
+  threshold: number;
+  actual_value: number;
+  time_window?: string;
+  explanation: string;
+  status: 'active' | 'resolved';
+  triggered_at: string;
+  resolved_at?: string;
+  resolution_value?: number;
+  resolution_explanation?: string;
+}
+
 export const weatherApi = {
   getDashboard: (city: string) => fetchWithHandler(`${API_BASE_URL}/api/weather/dashboard?city=${encodeURIComponent(city)}`),
   getCurrent: (city: string) => fetchWithHandler(`${API_BASE_URL}/api/weather/current?city=${encodeURIComponent(city)}`),
@@ -57,5 +98,33 @@ export const weatherApi = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, city, history, context })
-  })
+  }),
+  getMonitors: (location?: string, enabledOnly?: boolean) => {
+    const params = new URLSearchParams();
+    if (location) params.append('location', location);
+    if (enabledOnly) params.append('enabled_only', 'true');
+    const q = params.toString() ? `?${params.toString()}` : '';
+    return fetchWithHandler(`${API_BASE_URL}/api/monitors${q}`);
+  },
+  createMonitor: (data: Partial<WeatherMonitorItem>) => fetchWithHandler(`${API_BASE_URL}/api/monitors`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }),
+  updateMonitor: (id: string, updates: { enabled?: boolean; threshold?: number }) => fetchWithHandler(`${API_BASE_URL}/api/monitors/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  }),
+  deleteMonitor: (id: string) => fetchWithHandler(`${API_BASE_URL}/api/monitors/${id}`, {
+    method: 'DELETE',
+  }),
+  getTriggeredAlerts: (location?: string, status?: string) => {
+    const params = new URLSearchParams();
+    if (location) params.append('location', location);
+    if (status) params.append('status', status);
+    const q = params.toString() ? `?${params.toString()}` : '';
+    return fetchWithHandler(`${API_BASE_URL}/api/alerts${q}`);
+  },
+  getTriggeredAlert: (id: string) => fetchWithHandler(`${API_BASE_URL}/api/alerts/${id}`),
 };

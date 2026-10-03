@@ -104,10 +104,23 @@ class WeatherCollectorWorker:
                             "alert": alert,
                             "timestamp": alert.get("fetchedAt")
                         })
+                # 3b. Evaluate persistent weather monitors for this city
+                try:
+                    from backend.app.services.monitor_engine import MonitorEvaluationEngine
+                    await MonitorEvaluationEngine.evaluate_location(city_name, c_data)
+                except Exception as e:
+                    logger.warning("Monitor evaluation for '%s' error: %s", city_name, e)
             except Exception as e:
                 logger.warning("Collector city '%s' ingestion error: %s", city_name, e)
 
-        # 4. Periodic 30-day snapshot retention cleanup
+        # 4. Evaluate any remaining user-monitored locations outside primary hub cities
+        try:
+            from backend.app.services.monitor_engine import MonitorEvaluationEngine
+            await MonitorEvaluationEngine.evaluate_all_active_locations()
+        except Exception as e:
+            logger.debug("Additional monitor locations evaluation error: %s", e)
+
+        # 5. Periodic 30-day snapshot retention cleanup
         try:
             await HistoryService.cleanup_old_snapshots(retention_days=30)
         except Exception as e:
