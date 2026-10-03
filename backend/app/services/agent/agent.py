@@ -346,9 +346,12 @@ class WeatherGPTAgent:
                 f"RESPONSE LANGUAGE DIRECTIVE (HIGHEST PRIORITY):\n"
                 f"The user interface is set to {lang_name}. "
                 f"You MUST respond entirely in {lang_name}. "
-                f"All your narrative text, explanations, recommendations, and advisory paragraphs must be written in {lang_name}. "
-                f"Keep all numeric values (temperatures in \u00b0C, wind speed in km/h, percentages) as-is. "
-                f"Do NOT respond in English unless the user's message itself is in English.\n\n"
+                f"All your narrative text, explanations, recommendations, and advisory paragraphs must be written in {lang_name}.\n"
+                f"CRITICAL SEMANTIC & METEOROLOGICAL FIDELITY RULES:\n"
+                f"1. Keep all numeric values, temperatures (\u00b0C), wind speeds (km/h or knots), rainfall amounts (mm), pressure (hPa), and percentages (%) strictly accurate as returned by tools. Never fabricate or alter figures.\n"
+                f"2. Keep source names and model names unchanged (e.g., 'Open-Meteo', 'NOAA Aviation Weather Center', 'ECMWF IFS', 'GFS', 'ICON'). Do NOT translate provider or model proper nouns.\n"
+                f"3. Support mixed-language / code-mixed queries (e.g. 'Tomorrow rain chances किती आहेत?' or 'Barish hogi kya kal?') smoothly by providing full answers in {lang_name}.\n"
+                f"4. Do NOT revert to English unless the user explicitly requests an English response.\n\n"
             )
             system_text = directive + system_text
 

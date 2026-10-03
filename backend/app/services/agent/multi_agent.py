@@ -179,6 +179,9 @@ GROUNDING & LIMITATION RULES:
 - If the user asks about historical weather, past years/months, long-term climate records, or ERA5 reanalysis, transfer to ClimateAgent.
 - For all other weather queries including forecasts, comparing NWP forecast models (ECMWF, GFS, ICON, AIFS), current conditions, rain timing, alerts, recommendations, or radar, transfer to WeatherAgent.
 
+LANGUAGE AGNOSTIC ROUTING:
+The user query may be in English, Hindi, Marathi, or mixed code-switching languages (e.g. 'उद्या पिकांना पाणी देणे योग्य आहे का?' -> AgricultureAgent; 'विमान प्रवासासाठी हवामान कसे आहे?' -> AviationAgent; 'समुद्रात लाटांची उंची काय आहे?' -> MarineAgent; 'उद्या पाऊस पडेल का?' -> WeatherAgent). Route strictly based on domain topic and intent, regardless of the user's language.
+
 Do not answer weather questions yourself and do not call weather tools directly. You must ALWAYS execute a handoff transfer to the appropriate specialist agent.{dynamic_suffix}""",
         handoffs=[weather_agent, agriculture_agent, climate_agent, aviation_agent, marine_agent],
         input_guardrails=[safety_input_guardrail],

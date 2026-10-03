@@ -774,7 +774,6 @@ async def get_climate_summary_tool(args: ClimateResearchArgs) -> Dict[str, Any]:
 
 async def get_aviation_reports_tool(args: AviationArgs) -> Dict[str, Any]:
     """Fetches live METAR and TAF aviation weather reports for the nearest airport using the NOAA AWC API."""
-    from backend.app.services.aviation_service import AviationService
     from backend.app.services.weather_hub import weather_hub
     
     loc = args.location.strip()
@@ -789,7 +788,7 @@ async def get_aviation_reports_tool(args: AviationArgs) -> Dict[str, Any]:
             return {"error": f"Could not resolve location '{loc}'"}
         lat, lon = geo["latitude"], geo["longitude"]
         
-    return await AviationService.get_aviation_reports(lat, lon)
+    return await weather_hub.get_aviation_reports(lat, lon)
 
 
 # ==============================================================================
@@ -798,7 +797,7 @@ async def get_aviation_reports_tool(args: AviationArgs) -> Dict[str, Any]:
 
 async def get_marine_forecast_tool(args: MarineArgs) -> Dict[str, Any]:
     """Fetches marine forecast data including wave height, wave period, wave direction, and ocean currents using Open-Meteo Marine API."""
-    from backend.app.services.marine_service import MarineService
+    from backend.app.services.weather_hub import weather_hub
     
     loc = args.location.strip()
     if not loc:
@@ -812,7 +811,7 @@ async def get_marine_forecast_tool(args: MarineArgs) -> Dict[str, Any]:
             return {"error": f"Could not resolve location '{loc}'"}
         lat, lon = geo["latitude"], geo["longitude"]
         
-    return await MarineService.get_marine_forecast(lat, lon)
+    return await weather_hub.get_marine_data(lat, lon)
 
 
 # ==============================================================================

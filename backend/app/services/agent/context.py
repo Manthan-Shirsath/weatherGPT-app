@@ -658,8 +658,17 @@ def derive_intent(
 ) -> str:
     """Derives meteorological intent based on query and extracted state."""
     text_lower = text.lower()
+    words = [w.strip("?.,! ") for w in text_lower.split() if w.strip("?.,! ")]
+    is_polar_marathi_ka = bool(len(words) > 1 and words[-1] == "का")
+    is_single_word_why = bool(len(words) == 1 and words[0] in ["why", "का", "क्यों"])
 
-    if any(k in text_lower for k in ["why", "how", "explain", "what causes", "what's going on", "what is going on", "का", "कसे", "कारण"]):
+    has_explanation_why = (
+        is_single_word_why
+        or any(k in text_lower for k in ["why", "how", "explain", "what causes", "what's going on", "what is going on", "कारण", "कशासाठी", "का बरं", "का म्हणून", "क्यों", "कैसे"])
+        or ("का" in words[:-1])
+    )
+
+    if (has_explanation_why and not is_polar_marathi_ka) or is_single_word_why:
         return "visual_explanation"
     if locations_count > 1 or (locations_count == 1 and any(k in text_lower for k in ["compare with", "vs", "versus", "or", "better", "tulna"]) and "or" not in text_lower):
         # We need a robust check for location_comparison vs date_comparison
@@ -671,9 +680,9 @@ def derive_intent(
         return "date_comparison"
     if activity or "play" in text_lower or "खेळायला" in text_lower or "good time" in text_lower or "योग्य वेळ" in text_lower:
         return "activity_suitability"
-    if any(k in text_lower for k in ["rain", "paus", "barish", "पाऊस", "वर्षा", "drizzle", "shower"]):
+    if any(k in text_lower for k in ["rain", "paus", "barish", "barsat", "पाऊस", "बारिश", "बरसात", "वर्षा", "drizzle", "shower"]):
         return "rain_check"
-    if any(k in text_lower for k in ["alert", "warning", "risk", "धोका", "इशारा", "safe"]):
+    if any(k in text_lower for k in ["alert", "warning", "risk", "धोका", "इशारा", "सावधान", "चेतावनी", "खतरा", "safe"]):
         return "alerts"
     if any(k in text_lower for k in ["trend", "history", "yesterday", "मागील", "काल"]):
         return "trends"

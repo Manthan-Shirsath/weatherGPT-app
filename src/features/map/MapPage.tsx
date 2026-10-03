@@ -24,14 +24,46 @@ import {
   Radio,
   Eye,
   Loader2,
+  Crosshair,
+  Bell,
+  MapPin,
+  ShieldAlert,
+  Info
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { apiFetch } from '@/lib/api';
+import { weatherApi, type WeatherMonitorItem, type TriggeredAlertItem } from '@/lib/api/client';
 
+export type MapLayerType = 'weather' | 'temperature' | 'radar' | 'satellite' | 'wind' | 'rain' | 'clouds' | 'pressure' | 'alerts' | 'monitors';
 
-export type MapLayerType = 'temperature' | 'radar' | 'satellite' | 'wind' | 'rain' | 'clouds' | 'pressure' | 'alerts';
+// Fallback coordinates for prominent cities across India for alerts/monitors
+const INDIAN_CITY_COORDINATES: Record<string, { lat: number; lon: number }> = {
+  pune: { lat: 18.5204, lon: 73.8567 },
+  mumbai: { lat: 19.0760, lon: 72.8777 },
+  nashik: { lat: 19.9975, lon: 73.7898 },
+  delhi: { lat: 28.6139, lon: 77.2090 },
+  bengaluru: { lat: 12.9716, lon: 77.5946 },
+  bangalore: { lat: 12.9716, lon: 77.5946 },
+  chennai: { lat: 13.0827, lon: 80.2707 },
+  kolkata: { lat: 22.5726, lon: 88.3639 },
+  ahmedabad: { lat: 23.0225, lon: 72.5714 },
+  hyderabad: { lat: 17.3850, lon: 78.4867 },
+  jaipur: { lat: 26.9124, lon: 75.7873 },
+  lucknow: { lat: 26.8467, lon: 80.9462 },
+  goa: { lat: 15.2993, lon: 74.1240 },
+  nagpur: { lat: 21.1458, lon: 79.0882 },
+  surat: { lat: 21.1702, lon: 72.8311 },
+  patna: { lat: 25.5941, lon: 85.1376 },
+  bhopal: { lat: 23.2599, lon: 77.4126 },
+  visakhapatnam: { lat: 17.6868, lon: 83.2185 },
+  kochi: { lat: 9.9312, lon: 76.2673 },
+  guwahati: { lat: 26.1445, lon: 91.7362 },
+  chandigarh: { lat: 30.7333, lon: 76.7794 },
+  shimla: { lat: 31.1048, lon: 77.1734 },
+  srinagar: { lat: 34.0837, lon: 74.7973 }
+};
 
 // Maps frontend layer names to OWM tile layer names (via backend proxy)
 const OWM_LAYER_MAP: Record<string, string> = {
@@ -244,7 +276,7 @@ export default function MapPage() {
   });
 
   // Layer & Style State
-  const [activeLayer, setActiveLayer] = useState<MapLayerType>('temperature');
+  const [activeLayer, setActiveLayer] = useState<MapLayerType>('weather');
   const [basemapTheme, setBasemapTheme] = useState<'auto' | 'voyager' | 'dark' | 'light' | 'osm' | 'satellite'>('satellite');
   const [radarOpacity, setRadarOpacity] = useState<number>(0.75);
 
@@ -256,6 +288,16 @@ export default function MapPage() {
   const [currentFrameIndex, setCurrentFrameIndex] = useState<number>(0);
   const [isPlayingRadar, setIsPlayingRadar] = useState<boolean>(false);
   const [radarLoading, setRadarLoading] = useState<boolean>(false);
+
+  // Phase 7: Monitors & Alerts Data
+  const [userMonitors, setUserMonitors] = useState<WeatherMonitorItem[]>([]);
+  const [loadingMonitors, setLoadingMonitors] = useState<boolean>(false);
+  const [activeAlerts, setActiveAlerts] = useState<TriggeredAlertItem[]>([]);
+  const [loadingAlerts, setLoadingAlerts] = useState<boolean>(false);
+  const [selectedMonitor, setSelectedMonitor] = useState<WeatherMonitorItem | null>(null);
+  const [selectedAlert, setSelectedAlert] = useState<TriggeredAlertItem | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [locatingUser, setLocatingUser] = useState<boolean>(false);
 
   // Popups & Interactions
   const [selectedCity, setSelectedCity] = useState<CityWeather | null>(null);
@@ -396,10 +438,132 @@ export default function MapPage() {
     }
   };
 
+  // Fetch Authenticated User Monitors & Active Alerts (Phase 7)
+  const fetchMonitorsAndAlerts = async () => {
+    setLoadingMonitors(true);
+    setLoadingAlerts(true);
+    try {
+      const [monRes, alertRes] = await Promise.allSettled([
+        weatherApi.getMonitors(),
+        weatherApi.getTriggeredAlerts('', 'active')
+      ]);
+      if (monRes.status === 'fulfilled' && monRes.value) {
+        const val: any = monRes.value;
+        const list = Array.isArray(val) ? val : (val.monitors || []);
+        setUserMonitors(list);
+      }
+      if (alertRes.status === 'fulfilled' && alertRes.value) {
+        const val: any = alertRes.value;
+        const list = Array.isArray(val) ? val : (val.alerts || []);
+        setActiveAlerts(list);
+      }
+    } catch (err) {
+      console.warn('Failed to load monitors/alerts for map:', err);
+    } finally {
+      setLoadingMonitors(false);
+      setLoadingAlerts(false);
+    }
+  };
+
   useEffect(() => {
     fetchCitiesData();
     fetchRadarData();
+    fetchMonitorsAndAlerts();
   }, []);
+
+  // Coordinate resolver for monitors and alerts
+  const resolveLocationCoordinates = (locationName: string, lat?: number, lon?: number) => {
+    if (typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon) && (lat !== 0 || lon !== 0)) {
+      return { lat, lon };
+    }
+    const clean = (locationName || '').trim().toLowerCase();
+    const cityMatch = cities.find(c => c.name.toLowerCase() === clean);
+    if (cityMatch) {
+      return { lat: cityMatch.latitude, lon: cityMatch.longitude };
+    }
+    if (INDIAN_CITY_COORDINATES[clean]) {
+      return INDIAN_CITY_COORDINATES[clean];
+    }
+    return { lat: 20.5937, lon: 78.9629 };
+  };
+
+  // Locate user position via GPS
+  const handleCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      return;
+    }
+    setLocatingUser(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocatingUser(false);
+        const { latitude, longitude } = pos.coords;
+        setUserLocation({ lat: latitude, lon: longitude });
+        mapRef.current?.flyTo({
+          center: [longitude, latitude],
+          zoom: 9.5,
+          duration: 1500
+        });
+      },
+      (err) => {
+        setLocatingUser(false);
+        console.warn('Geolocation error:', err.message);
+      },
+      { timeout: 10000 }
+    );
+  };
+
+  // Get data provenance for active layer (WHAT DATA, WHICH TIME, WHICH SOURCE)
+  const getLayerDescription = (layer: MapLayerType) => {
+    switch (layer) {
+      case 'radar':
+      case 'satellite':
+        return {
+          data: 'Doppler Radar Reflectivity',
+          time: radarFrames[currentFrameIndex]?.time 
+            ? formatFrameTime(radarFrames[currentFrameIndex]?.time)
+            : 'Live Nowcast',
+          source: 'RainViewer Radar Composite'
+        };
+      case 'temperature':
+        return {
+          data: '2m Surface Air Temperature',
+          time: 'NWP Model Run (Live)',
+          source: 'Open-Meteo & OWM'
+        };
+      case 'wind':
+        return {
+          data: '10m Wind Speed & Direction',
+          time: 'Operational Forecast Run',
+          source: 'Open-Meteo GFS/ICON'
+        };
+      case 'rain':
+        return {
+          data: 'Precipitation Probability & Convection',
+          time: 'Live Nowcast +24h',
+          source: 'Open-Meteo Consensus'
+        };
+      case 'alerts':
+        return {
+          data: 'Active Weather Warnings & Hazards',
+          time: activeAlerts.length > 0 ? `${activeAlerts.length} Active Hazards` : 'Fresh evaluation',
+          source: 'IMD & SkyCast Monitor Engine'
+        };
+      case 'monitors':
+        return {
+          data: 'User-Monitored Targets (Strictly Private)',
+          time: `${userMonitors.filter(m => m.enabled).length} Enabled Monitors`,
+          source: 'Authenticated User Session'
+        };
+      case 'weather':
+      default:
+        return {
+          data: 'Consolidated City Meteorological Field',
+          time: 'Live Synchronized Observation',
+          source: 'Centralized WeatherHub'
+        };
+    }
+  };
 
   // Update Radar Frames when activeLayer changes or metadata is loaded
   useEffect(() => {
@@ -620,54 +784,96 @@ export default function MapPage() {
               variant="outline" 
               size="icon" 
               className="h-9.5 w-9.5 bg-sky-background border-sky-border shrink-0 rounded-xl hover:bg-sky-surface-elevated text-sky-text-primary" 
-              title="Refresh Map Weather"
-              onClick={() => { fetchCitiesData(); fetchRadarData(); }}
+              title="Locate my position (GPS)"
+              onClick={handleCurrentLocation}
+              disabled={locatingUser}
             >
-              <RefreshCw className={`h-4 w-4 ${loadingCities || radarLoading ? 'animate-spin' : ''}`} />
+              <Crosshair className={`h-4 w-4 ${locatingUser ? 'animate-spin text-sky-primary' : ''}`} />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-9.5 w-9.5 bg-sky-background border-sky-border shrink-0 rounded-xl hover:bg-sky-surface-elevated text-sky-text-primary" 
+              title="Refresh Map Weather"
+              onClick={() => { fetchCitiesData(); fetchRadarData(); fetchMonitorsAndAlerts(); }}
+            >
+              <RefreshCw className={`h-4 w-4 ${loadingCities || radarLoading || loadingMonitors || loadingAlerts ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Top-Right / Top Floating Controls (Layer Selectors & Legend) */}
-      <div className="absolute top-4 right-2 lg:right-4 z-20 flex flex-col items-end gap-2 lg:gap-3 pointer-events-none">
+      {/* Top-Right Floating Controls (Compact Layer Selector, Provenance, & Legend) */}
+      <div className="absolute top-4 right-2 lg:right-4 z-20 flex flex-col items-end gap-2 pointer-events-none max-w-[calc(100vw-1rem)]">
         
-        {/* Layer Selector */}
-        <div className="bg-sky-surface/95 backdrop-blur-xl p-2 rounded-xl border border-sky-border shadow-xl pointer-events-auto flex flex-col w-35 lg:w-42.5">
-          <span className="text-[9px] lg:text-[10px] font-bold text-sky-text-secondary tracking-widest uppercase px-2 lg:px-3 py-1.5 mb-1 border-b border-sky-border/50">
-            Layers
-          </span>
-          <div className="flex flex-col gap-0.5 mt-1">
-            <Button variant={activeLayer === 'temperature' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('temperature')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
-              <Thermometer className="h-3.5 w-3.5 mr-2" /> Temperature
-            </Button>
-            <Button variant={activeLayer === 'radar' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('radar')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
-              <Radio className={cn("h-3.5 w-3.5 mr-2", activeLayer !== 'radar' && "text-sky-ai")} /> Doppler Radar
-            </Button>
-            <Button variant={activeLayer === 'satellite' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('satellite')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
-              <Satellite className="h-3.5 w-3.5 mr-2" /> Satellite IR
-            </Button>
-            <Button variant={activeLayer === 'wind' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('wind')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
-              <Wind className="h-3.5 w-3.5 mr-2" /> Wind
-            </Button>
-            <Button variant={activeLayer === 'rain' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('rain')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
-              <CloudRain className="h-3.5 w-3.5 mr-2" /> Rain Chance
-            </Button>
-            <Button variant={activeLayer === 'clouds' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('clouds')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
-              <Cloud className="h-3.5 w-3.5 mr-2" /> Clouds
-            </Button>
-            <Button variant={activeLayer === 'pressure' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('pressure')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
-              <Gauge className="h-3.5 w-3.5 mr-2" /> Pressure
-            </Button>
-            <div className="h-px bg-sky-border my-1 mx-2" />
-            <Button variant={activeLayer === 'alerts' ? 'destructive' : 'ghost'} size="sm" onClick={() => setActiveLayer('alerts')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary hover:text-sky-danger hover:bg-sky-danger/10">
-              <AlertTriangle className="h-3.5 w-3.5 mr-2" /> Alerts
-            </Button>
+        {/* Compact Layer Selector Bar */}
+        <div className="bg-sky-surface/95 backdrop-blur-xl p-1 rounded-xl border border-sky-border shadow-xl pointer-events-auto flex items-center gap-1 overflow-x-auto max-w-full scrollbar-none">
+          {[
+            { id: 'weather', label: 'Weather', icon: Sparkles },
+            { id: 'radar', label: 'Radar / Rain', icon: Radio },
+            { id: 'wind', label: 'Wind', icon: Wind },
+            { id: 'temperature', label: 'Temp', icon: Thermometer },
+            { id: 'alerts', label: 'Alerts', icon: AlertTriangle, count: activeAlerts.length },
+            { id: 'monitors', label: 'Monitors', icon: Bell, count: userMonitors.length },
+          ].map((layer) => {
+            const Icon = layer.icon;
+            const isActive = activeLayer === layer.id || (activeLayer === 'rain' && layer.id === 'radar');
+            return (
+              <button
+                key={layer.id}
+                type="button"
+                onClick={() => {
+                  setActiveLayer(layer.id as MapLayerType);
+                  setSelectedAlert(null);
+                  setSelectedMonitor(null);
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0",
+                  isActive
+                    ? layer.id === 'alerts' 
+                      ? "bg-rose-600 text-white shadow-sm"
+                      : layer.id === 'monitors'
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "bg-sky-ai text-white shadow-sm"
+                    : "text-sky-text-secondary hover:text-sky-text-primary hover:bg-sky-surface-elevated"
+                )}
+                aria-pressed={isActive}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{layer.label}</span>
+                {typeof layer.count === 'number' && layer.count > 0 && (
+                  <span className={cn(
+                    "text-[10px] px-1 rounded-full font-bold",
+                    isActive ? "bg-white/20 text-white" : "bg-sky-surface-elevated text-sky-text-primary"
+                  )}>
+                    {layer.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Intelligence Provenance Card: WHAT DATA, WHICH TIME, WHICH SOURCE */}
+        <div className="bg-sky-surface/95 backdrop-blur-xl px-3 py-2 rounded-xl border border-sky-border shadow-xl pointer-events-auto flex items-center justify-between gap-3 text-[11px] w-full lg:w-auto flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-sky-text-primary uppercase tracking-wider text-[10px]">Data:</span>
+            <span className="text-sky-ai font-semibold">{getLayerDescription(activeLayer).data}</span>
+          </div>
+          <div className="h-3 w-px bg-sky-border hidden sm:block" />
+          <div className="flex items-center gap-1 text-sky-text-secondary">
+            <span className="font-bold text-sky-text-primary uppercase tracking-wider text-[10px]">Time:</span>
+            <span>{getLayerDescription(activeLayer).time}</span>
+          </div>
+          <div className="h-3 w-px bg-sky-border hidden sm:block" />
+          <div className="flex items-center gap-1 text-sky-text-secondary">
+            <span className="font-bold text-sky-text-primary uppercase tracking-wider text-[10px]">Source:</span>
+            <span className="font-medium text-sky-text-primary">{getLayerDescription(activeLayer).source}</span>
           </div>
         </div>
 
         {/* Dynamic Legend */}
-        <div className="bg-sky-surface/95 backdrop-blur-xl p-3.5 rounded-2xl border border-sky-border shadow-xl pointer-events-auto w-42.5">
+        <div className="bg-sky-surface/95 backdrop-blur-xl p-3 rounded-xl border border-sky-border shadow-xl pointer-events-auto w-44 hidden md:block">
           {renderLegend()}
         </div>
       </div>
@@ -755,6 +961,13 @@ export default function MapPage() {
                   )}
 
                   {/* Marker Content based on Active Layer */}
+                  {activeLayer === 'weather' && (
+                    <div className={`px-2 py-0.5 rounded-full shadow-md text-xs font-bold flex items-center gap-1 transition-transform group-hover:scale-110 border ${isSelected ? 'ring-2 ring-sky-primary border-white' : 'border-black/10'} ${getTempBadgeColor(city.temperature)}`}>
+                      <span>{city.temperature}°</span>
+                      <span className="text-[10px] font-normal opacity-90 hidden sm:inline">{city.condition}</span>
+                    </div>
+                  )}
+
                   {activeLayer === 'temperature' && (
                     <div className={`px-2 py-0.5 rounded-full shadow-md text-xs font-bold flex items-center gap-1 transition-transform group-hover:scale-110 border ${isSelected ? 'ring-2 ring-sky-primary border-white' : 'border-black/10'} ${getTempBadgeColor(city.temperature)}`}>
                       <span>{city.temperature}°</span>
@@ -814,6 +1027,97 @@ export default function MapPage() {
               </Marker>
             );
           })}
+
+          {/* User Weather Monitors (Section 7 - Authorized Session Only) */}
+          {(activeLayer === 'monitors' || activeLayer === 'weather') && userMonitors.map((mon) => {
+            const coords = resolveLocationCoordinates(mon.location, mon.latitude, mon.longitude);
+            const isSelected = selectedMonitor?.id === mon.id;
+            const isTriggered = mon.state === 'triggered';
+
+            return (
+              <Marker
+                key={`monitor-${mon.id}`}
+                longitude={coords.lon}
+                latitude={coords.lat}
+                anchor="center"
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation();
+                  setSelectedMonitor(mon);
+                  setSelectedAlert(null);
+                  setSelectedCity(null);
+                  setClickedPoint(null);
+                }}
+              >
+                <div className="cursor-pointer group flex flex-col items-center select-none z-20">
+                  {isTriggered && (
+                    <span className="absolute -inset-1 rounded-full bg-rose-500/50 animate-ping" />
+                  )}
+                  <div className={cn(
+                    "px-2.5 py-1 rounded-full shadow-lg text-[11px] font-bold flex items-center gap-1.5 transition-transform group-hover:scale-110 border",
+                    isTriggered 
+                      ? "bg-rose-600 text-white border-white"
+                      : mon.enabled
+                        ? "bg-indigo-600 text-white border-indigo-400"
+                        : "bg-slate-700 text-slate-300 border-slate-600",
+                    isSelected && "ring-2 ring-white ring-offset-2 ring-offset-indigo-600"
+                  )}>
+                    <span className={cn("h-2 w-2 rounded-full", isTriggered ? "bg-white animate-pulse" : "bg-emerald-400")} />
+                    <span>{mon.location}</span>
+                    <span className="opacity-90 font-normal hidden sm:inline">● {mon.rule_type.replace('_', ' ')} monitor</span>
+                  </div>
+                </div>
+              </Marker>
+            );
+          })}
+
+          {/* Active Meteorological Alerts & Hazards (Section 6) */}
+          {(activeLayer === 'alerts' || activeLayer === 'weather') && activeAlerts.map((alert) => {
+            const coords = resolveLocationCoordinates(alert.location);
+            const isSelected = selectedAlert?.id === alert.id;
+
+            return (
+              <Marker
+                key={`alert-${alert.id}`}
+                longitude={coords.lon}
+                latitude={coords.lat}
+                anchor="center"
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation();
+                  setSelectedAlert(alert);
+                  setSelectedMonitor(null);
+                  setSelectedCity(null);
+                  setClickedPoint(null);
+                }}
+              >
+                <div className="cursor-pointer group flex flex-col items-center select-none z-20">
+                  <span className="absolute -inset-1.5 rounded-full bg-rose-500/60 animate-ping" />
+                  <div className={cn(
+                    "px-2.5 py-1 rounded-full shadow-xl text-[11px] font-bold flex items-center gap-1.5 transition-transform group-hover:scale-110 border border-white text-white",
+                    alert.severity === 'critical' ? "bg-red-600" : "bg-amber-600",
+                    isSelected && "ring-2 ring-white"
+                  )}>
+                    <AlertTriangle className="h-3.5 w-3.5 fill-white/20 animate-bounce" />
+                    <span>{alert.location}</span>
+                    <span className="font-normal opacity-90 capitalize">({alert.severity})</span>
+                  </div>
+                </div>
+              </Marker>
+            );
+          })}
+
+          {/* GPS Current Location Marker */}
+          {userLocation && (
+            <Marker
+              longitude={userLocation.lon}
+              latitude={userLocation.lat}
+              anchor="center"
+            >
+              <div className="relative flex items-center justify-center">
+                <span className="animate-ping absolute inline-flex h-6 w-6 rounded-full bg-sky-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-sky-500 border-2 border-white shadow-md"></span>
+              </div>
+            </Marker>
+          )}
 
           {/* City Weather Detailed Inspection Popup */}
           {selectedCity && (
@@ -912,6 +1216,142 @@ export default function MapPage() {
                     </Button>
                   </div>
 
+                </CardContent>
+              </Card>
+            </Popup>
+          )}
+
+          {/* Active Alert Detailed Popup (Section 6) */}
+          {selectedAlert && (
+            <Popup
+              longitude={resolveLocationCoordinates(selectedAlert.location).lon}
+              latitude={resolveLocationCoordinates(selectedAlert.location).lat}
+              anchor="bottom"
+              offset={16}
+              onClose={() => setSelectedAlert(null)}
+              className="weather-popup rounded-2xl z-30"
+              closeButton={false}
+              maxWidth="320px"
+            >
+              <Card className="border-0 shadow-xl bg-sky-surface/95 backdrop-blur-md rounded-2xl overflow-hidden">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-rose-500 uppercase tracking-wider">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <span>Active Meteorological Hazard</span>
+                      </div>
+                      <h3 className="font-bold text-base text-sky-text-primary mt-0.5">
+                        {selectedAlert.location}
+                      </h3>
+                    </div>
+                    <Badge variant={selectedAlert.severity === 'critical' ? 'destructive' : 'default'} className="text-[10px] uppercase font-bold">
+                      {selectedAlert.severity}
+                    </Badge>
+                  </div>
+
+                  <div className="bg-sky-surface-elevated/70 p-2.5 rounded-xl border border-sky-border/50 text-xs space-y-1.5">
+                    <div className="flex justify-between">
+                      <span className="text-sky-text-secondary">Hazard:</span>
+                      <strong className="text-sky-text-primary capitalize">{selectedAlert.condition_desc || selectedAlert.rule_type.replace('_', ' ')}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sky-text-secondary">Time Window:</span>
+                      <span className="text-sky-text-primary font-mono">{selectedAlert.time_window || 'Current / Next 24h'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sky-text-secondary">Triggered At:</span>
+                      <span className="text-sky-text-primary font-mono text-[11px]">{new Date(selectedAlert.triggered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sky-text-secondary">Source:</span>
+                      <span className="text-sky-ai font-medium">SkyCast Monitor Engine (NWP Ground Truth)</span>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-sky-text-primary bg-rose-500/10 border border-rose-500/20 p-2 rounded-lg">
+                    <p className="font-semibold text-rose-300 text-[11px] uppercase tracking-wider mb-0.5">Explanation</p>
+                    <p className="leading-snug">{selectedAlert.explanation}</p>
+                  </div>
+
+                  <Button 
+                    size="sm" 
+                    className="w-full text-xs h-8 bg-sky-primary hover:bg-sky-primary-hover text-white"
+                    onClick={() => navigate(`/weathergpt?q=${encodeURIComponent(`Explain active weather hazard in ${selectedAlert.location}: ${selectedAlert.condition_desc}`)}`)}
+                  >
+                    <Sparkles className="h-3 w-3 mr-1 text-sky-ai" />
+                    Analyze with WeatherGPT
+                  </Button>
+                </CardContent>
+              </Card>
+            </Popup>
+          )}
+
+          {/* User Weather Monitor Popup (Section 7) */}
+          {selectedMonitor && (
+            <Popup
+              longitude={resolveLocationCoordinates(selectedMonitor.location, selectedMonitor.latitude, selectedMonitor.longitude).lon}
+              latitude={resolveLocationCoordinates(selectedMonitor.location, selectedMonitor.latitude, selectedMonitor.longitude).lat}
+              anchor="bottom"
+              offset={16}
+              onClose={() => setSelectedMonitor(null)}
+              className="weather-popup rounded-2xl z-30"
+              closeButton={false}
+              maxWidth="320px"
+            >
+              <Card className="border-0 shadow-xl bg-sky-surface/95 backdrop-blur-md rounded-2xl overflow-hidden">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-400 uppercase tracking-wider">
+                        <Bell className="h-3.5 w-3.5" />
+                        <span>Persistent Weather Monitor</span>
+                      </div>
+                      <h3 className="font-bold text-base text-sky-text-primary mt-0.5">
+                        {selectedMonitor.location}
+                      </h3>
+                    </div>
+                    <Badge variant={selectedMonitor.state === 'triggered' ? 'destructive' : selectedMonitor.enabled ? 'secondary' : 'outline'} className="text-[10px] uppercase font-bold">
+                      {selectedMonitor.state}
+                    </Badge>
+                  </div>
+
+                  <div className="bg-sky-surface-elevated/70 p-2.5 rounded-xl border border-sky-border/50 text-xs space-y-1.5">
+                    <div className="flex justify-between">
+                      <span className="text-sky-text-secondary">Monitored Metric:</span>
+                      <strong className="text-sky-text-primary capitalize">{selectedMonitor.metric.replace('_', ' ')}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sky-text-secondary">Condition Rule:</span>
+                      <span className="text-sky-text-primary font-mono font-bold">{selectedMonitor.operator} {selectedMonitor.threshold}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sky-text-secondary">Time Window:</span>
+                      <span className="text-sky-text-primary">{selectedMonitor.time_window || 'All day'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sky-text-secondary">Last Evaluated:</span>
+                      <span className="text-sky-text-primary font-mono text-[11px]">
+                        {selectedMonitor.last_evaluated_at ? new Date(selectedMonitor.last_evaluated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending evaluation'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-sky-text-secondary bg-sky-surface-elevated/50 p-2 rounded-lg border border-sky-border/40">
+                    <p className="font-semibold text-sky-text-primary mb-0.5 flex items-center gap-1">
+                      <Info className="h-3 w-3 text-sky-ai" /> Authorized User Target
+                    </p>
+                    <p>This monitor is securely scoped to your session and evaluates automatically on forecast changes.</p>
+                  </div>
+
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="w-full text-xs h-8"
+                    onClick={() => navigate(`/alerts`)}
+                  >
+                    View Alert Workflows
+                  </Button>
                 </CardContent>
               </Card>
             </Popup>

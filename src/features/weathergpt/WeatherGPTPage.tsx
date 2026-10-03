@@ -8,7 +8,7 @@ import {
   LineChart, Bookmark, BookmarkCheck, RotateCcw, Sprout, ShieldAlert,
   Mic, MicOff, Edit2, Check, Copy, ChevronDown, Search, ArrowUpRight,
   Plane, Ship, Zap, Gauge, Sun, CloudFog, Info, ShieldCheck, Activity,
-  Compass, Radio
+  Compass, Radio, Volume2, VolumeX, Globe
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
 import { apiFetch } from '@/lib/api';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { useWeatherWebSocket } from '@/hooks/useWeatherWebSocket';
 import { DecisionHero } from '@/components/weather/DecisionHero';
 import { ForecastChart } from '@/components/weather/ForecastChart';
@@ -274,7 +275,7 @@ function generateFollowUps(role: 'user' | 'model', content: string, city: string
 
 // --- Component ---
 export default function WeatherGPTPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCity = searchParams.get('city') || 'Pune';
   
@@ -308,9 +309,28 @@ export default function WeatherGPTPage() {
   const [showPinnedDrawer, setShowPinnedDrawer] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Voice Input hook
-  const { isListening, transcript, isSupported: isVoiceSupported, startListening, stopListening } = useSpeechRecognition({
+  // Text-to-Speech hook
+  const {
+    isSpeaking,
+    isSupported: isSpeechSupported,
+    activeId: activeSpeakerId,
+    speak,
+    stop: stopSpeaking
+  } = useSpeechSynthesis();
+
+  // Voice Input hook with state machine
+  const {
+    voiceState,
+    isListening,
+    transcript,
+    isSupported: isVoiceSupported,
+    error: voiceError,
+    startListening,
+    stopListening,
+    resetTranscript
+  } = useSpeechRecognition({
     continuous: false,
+    lang: i18n.resolvedLanguage || i18n.language || 'en',
     onResult: (spokenText) => {
       setInputValue(spokenText);
     }
@@ -362,6 +382,7 @@ export default function WeatherGPTPage() {
   }, [setSearchParams]);
 
   const handleResetChat = useCallback(() => {
+    stopSpeaking();
     setSessionId(null);
     setInputValue('');
     setActiveMonitor(null);
@@ -382,7 +403,7 @@ export default function WeatherGPTPage() {
         ]
       }
     ]);
-  }, [activeCity, agentMode, t]);
+  }, [activeCity, agentMode, t, stopSpeaking]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [activeMonitor, setActiveMonitor] = useState<MonitorState | null>(null);
@@ -439,6 +460,7 @@ export default function WeatherGPTPage() {
     setIsLoading(true);
 
     try {
+      const activeLang = i18n.resolvedLanguage || i18n.language || 'en';
       const response = await apiFetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -449,9 +471,11 @@ export default function WeatherGPTPage() {
           city: cityToUse,
           session_id: sessionId,
           agent_mode: agentMode,
+          language: activeLang,
           context: {
              page: '/weathergpt',
-             active_city: cityToUse
+             active_city: cityToUse,
+             language: activeLang
           }
         })
       });
@@ -936,6 +960,34 @@ export default function WeatherGPTPage() {
 
          {/* Right actions: New Chat, Pinned, Mode Selector */}
          <div className="flex items-center gap-2">
+           {/* Compact Multilingual Selector */}
+           <div className="flex items-center rounded-lg border border-sky-border/70 bg-sky-surface p-0.5 text-[11px] font-medium" role="group" aria-label="Select WeatherGPT language">
+             {[
+               { code: 'en', label: 'EN' },
+               { code: 'hi', label: 'हिन्दी' },
+               { code: 'mr', label: 'मराठी' },
+             ].map((lang) => {
+               const isActive = (i18n.resolvedLanguage === lang.code) || 
+                 (lang.code === 'en' && !['hi', 'mr'].includes(i18n.resolvedLanguage || ''));
+               return (
+                 <button
+                   key={lang.code}
+                   type="button"
+                   onClick={() => i18n.changeLanguage(lang.code)}
+                   className={cn(
+                     "px-2 py-0.5 rounded-md transition-all cursor-pointer text-xs",
+                     isActive
+                       ? "bg-sky-ai text-white font-semibold shadow-2xs"
+                       : "text-sky-text-secondary hover:text-sky-text-primary"
+                   )}
+                   title={`Switch to ${lang.label}`}
+                 >
+                   {lang.label}
+                 </button>
+               );
+             })}
+           </div>
+
            {/* New Chat Button */}
            <Button
              variant="outline"
@@ -1348,6 +1400,32 @@ export default function WeatherGPTPage() {
                         </button>
                       )}
                       
+                      {/* Text-to-Speech (TTS) Read Aloud */}
+                      {isSpeechSupported && !msg.isError && (
+                        <button
+                          onClick={() => speak(msg.id, msg.content, i18n.resolvedLanguage || i18n.language || 'en')}
+                          className={cn(
+                            "inline-flex items-center gap-1 transition-colors cursor-pointer",
+                            isSpeaking && activeSpeakerId === msg.id 
+                              ? "text-sky-ai font-semibold animate-pulse" 
+                              : "hover:text-sky-text-primary"
+                          )}
+                          title={isSpeaking && activeSpeakerId === msg.id ? "Stop reading" : "Read aloud (Text-to-Speech)"}
+                        >
+                          {isSpeaking && activeSpeakerId === msg.id ? (
+                            <>
+                              <VolumeX className="h-3 w-3 text-sky-ai" />
+                              <span className="hidden sm:inline text-sky-ai font-medium">Stop</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="h-3 w-3" />
+                              <span className="hidden sm:inline">Listen</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+
                       <button
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
                         className="inline-flex items-center gap-1 hover:text-sky-text-primary transition-colors cursor-pointer"
@@ -1451,6 +1529,63 @@ export default function WeatherGPTPage() {
               ))}
             </div>
 
+            {/* Voice State Status Indicator */}
+            {voiceState !== 'IDLE' && (
+              <div 
+                className={cn(
+                  "flex items-center justify-between text-xs px-3 py-1.5 rounded-lg border transition-all animate-fade-in",
+                  voiceState === 'LISTENING' && "bg-rose-500/10 border-rose-500/30 text-rose-300",
+                  voiceState === 'PROCESSING' && "bg-sky-ai/10 border-sky-ai/30 text-sky-ai",
+                  voiceState === 'ERROR' && "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                )}
+                role="status"
+                aria-live="polite"
+              >
+                <div className="flex items-center gap-2">
+                  {voiceState === 'LISTENING' && (
+                    <>
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                      </span>
+                      <span className="font-medium text-xs">
+                        🎙️ Listening ({i18n.resolvedLanguage ? i18n.resolvedLanguage.toUpperCase() : 'EN'})... Speak your weather query
+                      </span>
+                    </>
+                  )}
+                  {voiceState === 'PROCESSING' && (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-ai" />
+                      <span className="font-medium text-xs">Transcribing voice input...</span>
+                    </>
+                  )}
+                  {voiceState === 'ERROR' && (
+                    <>
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                      <span className="text-[11px] font-medium">{voiceError || 'Voice input failed. You can type instead.'}</span>
+                    </>
+                  )}
+                </div>
+                {voiceState === 'LISTENING' ? (
+                  <button 
+                    type="button" 
+                    onClick={stopListening} 
+                    className="text-[10px] font-bold uppercase tracking-wider underline hover:text-white cursor-pointer px-1 py-0.5"
+                  >
+                    Done
+                  </button>
+                ) : (
+                  <button 
+                    type="button" 
+                    onClick={resetTranscript} 
+                    className="text-[10px] font-bold uppercase tracking-wider underline hover:text-white cursor-pointer px-1 py-0.5"
+                  >
+                    Dismiss
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Weather Analysis Command Bar Input */}
             <form 
               onSubmit={handleSubmit} 
@@ -1473,7 +1608,7 @@ export default function WeatherGPTPage() {
               />
 
               {/* Voice Input Microphone Button */}
-              {isVoiceSupported && (
+              {isVoiceSupported ? (
                 <button
                   type="button"
                   onClick={isListening ? stopListening : startListening}
@@ -1483,9 +1618,20 @@ export default function WeatherGPTPage() {
                       ? "bg-rose-500/20 text-rose-400 animate-pulse shadow-inner" 
                       : "text-sky-text-secondary hover:text-sky-ai hover:bg-sky-ai/10"
                   )}
-                  title={isListening ? "Stop listening" : "Voice input"}
+                  title={isListening ? "Stop listening" : `Voice input (${i18n.resolvedLanguage?.toUpperCase() || 'EN'})`}
+                  aria-label={isListening ? "Stop voice listening" : "Start voice input"}
                 >
                   {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="h-8 w-8 mr-1 rounded-lg flex items-center justify-center text-sky-text-secondary/40 cursor-not-allowed opacity-50"
+                  title="Voice input not supported in this browser"
+                  aria-label="Voice input not supported"
+                >
+                  <MicOff className="h-4 w-4" />
                 </button>
               )}
 
