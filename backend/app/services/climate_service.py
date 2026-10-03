@@ -651,6 +651,69 @@ class ClimateService:
         }
 
     @classmethod
+    async def get_historical_summary(
+        cls,
+        city: str,
+        start_date: Optional[datetime.date] = None,
+        end_date: Optional[datetime.date] = None,
+        metric: Optional[str] = None,
+        compare_start: Optional[datetime.date] = None,
+        compare_end: Optional[datetime.date] = None,
+    ) -> Dict[str, Any]:
+        """Legacy compatibility method for tools & tests."""
+        today = datetime.date.today()
+        start_date = start_date or today - datetime.timedelta(days=30)
+        end_date = end_date or today
+        
+        coords = await cls._geocode(city)
+        if not coords:
+            return {"error": "geocode failed", "data_type": "error"}
+            
+        lat = float(coords.get("latitude") or coords.get("lat"))
+        lon = float(coords.get("longitude") or coords.get("lon"))
+        display_name = f"{coords.get('name', city)}, {coords.get('country', '')}".strip(", ")
+        
+        raw = await cls._fetch_archive(lat, lon, start_date, end_date)
+        if not raw or "daily" not in raw:
+            return {"error": "unavailable", "data_type": "error"}
+            
+        daily = raw["daily"]
+        t_means = daily.get("temperature_2m_mean", [])
+        t_maxs = daily.get("temperature_2m_max", [])
+        t_mins = daily.get("temperature_2m_min", [])
+        precips = daily.get("precipitation_sum", [])
+        
+        days_covered = len(t_means)
+        
+        res = {
+            "city": display_name,
+            "data_type": "observed_historical",
+            "data_source": "Open-Meteo Archive API (ERA5 reanalysis)",
+            "days_covered": days_covered,
+            "temperature": {
+                "avg_max_c": _safe_mean(t_maxs),
+                "overall_max_c": _safe_max(t_maxs),
+                "overall_max_date": daily.get("time", [])[t_maxs.index(max(t_maxs))] if t_maxs else None,
+                "overall_min_c": _safe_min(t_mins)
+            },
+            "precipitation": {
+                "total_mm": _safe_sum(precips),
+                "rainy_days": sum(1 for p in precips if p and p >= 1.0)
+            }
+        }
+        
+        if compare_start and compare_end:
+            cmp_raw = await cls._fetch_archive(lat, lon, compare_start, compare_end)
+            if cmp_raw and "daily" in cmp_raw:
+                cmp_t_means = cmp_raw["daily"].get("temperature_2m_mean", [])
+                base_mean = _safe_mean(cmp_t_means)
+                cur_mean = _safe_mean(t_means)
+                res["comparison"] = True
+                res["anomaly_temperature_mean_c"] = _anomaly(cur_mean, base_mean)
+                
+        return res
+
+    @classmethod
     async def get_climate_intelligence(
         cls,
         city: str,

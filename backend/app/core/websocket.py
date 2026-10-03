@@ -29,12 +29,26 @@ class WebSocketManager:
             self.city_subscriptions[websocket].add(city.strip().lower())
             logger.info("📡 [WS SUBSCRIBED] Client subscribed to '%s'", city)
 
+    def unsubscribe(self, websocket: WebSocket, city: str):
+        if websocket in self.city_subscriptions:
+            self.city_subscriptions[websocket].discard(city.strip().lower())
+            logger.info("📡 [WS UNSUBSCRIBED] Client unsubscribed from '%s'", city)
+
     async def broadcast(self, message: dict):
         if not self.active_connections:
             return
 
         dead_connections = []
+        city_target = message.get("city", "").strip().lower()
+
         for connection in self.active_connections:
+            # If the message targets a specific city, enforce subscription filtering.
+            # If a client hasn't subscribed to ANY city, we don't send targeted messages.
+            if city_target:
+                subs = self.city_subscriptions.get(connection, set())
+                if city_target not in subs:
+                    continue
+
             try:
                 await connection.send_json(message)
             except Exception:

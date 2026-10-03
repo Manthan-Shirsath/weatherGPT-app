@@ -162,7 +162,7 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
             ref={listRef}
             role="listbox"
             aria-label="Agent modes"
-            className="max-h-72 overflow-y-auto py-1 scroll-smooth"
+            className="max-h-60 overflow-y-auto py-1 scroll-smooth"
           >
             {modes.map((mode, idx) => {
               const ModeIcon = mode.icon;

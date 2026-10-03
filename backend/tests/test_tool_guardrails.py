@@ -263,12 +263,14 @@ async def test_native_handoff_and_phase3a1_guardrails_intact():
     assert triage.name == "TriageAgent"
     assert len(triage.input_guardrails) == 1
     assert triage.input_guardrails[0].get_name() == "safety_input_guardrail"
-    assert len(triage.handoffs) == 3
+    assert len(triage.handoffs) == 5
 
     specialist_names = [h.name for h in triage.handoffs]
     assert "WeatherAgent" in specialist_names
     assert "AgricultureAgent" in specialist_names
     assert "ClimateAgent" in specialist_names
+    assert "AviationAgent" in specialist_names
+    assert "MarineAgent" in specialist_names
 
     for specialist in triage.handoffs:
         assert len(specialist.output_guardrails) == 1

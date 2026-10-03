@@ -558,7 +558,7 @@ export default function ForecastIntelligencePage() {
     const spreadDiff = payload[0]?.payload?._spread_diff;
 
     return (
-      <div className="bg-sky-surface/95 backdrop-blur-md border border-sky-border p-3.5 rounded-lg shadow-xl min-w-[240px] text-xs flex flex-col gap-2.5">
+      <div className="bg-sky-surface/95 backdrop-blur-md border border-sky-border p-3.5 rounded-lg shadow-xl min-w-60 text-xs flex flex-col gap-2.5">
         <div className="border-b border-sky-border pb-1.5 flex justify-between items-center">
           <span className="font-bold text-sky-text-primary">{formattedDate} · {formattedTime}</span>
           {spreadDiff !== undefined && (
@@ -579,8 +579,8 @@ export default function ForecastIntelligencePage() {
               )}
             >
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: m.color }}></span>
-                <span className={cn("text-sky-text-primary truncate max-w-[130px]", m.isIsolated && "text-sky-primary")}>
+                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: m.color }}></span>
+                <span className={cn("text-sky-text-primary truncate max-w-32.5", m.isIsolated && "text-sky-primary")}>
                   {m.name}
                 </span>
                 {m.methodology === 'machine_learning' || m.methodology === 'generative_ai' ? (
@@ -655,13 +655,13 @@ export default function ForecastIntelligencePage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-sky-background p-4 md:p-8 overflow-y-auto">
+    <div className="flex flex-col h-full bg-sky-background p-4 md:p-6 overflow-y-auto">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-bold text-sky-text-primary flex items-center gap-3">
-            <LineChartIcon className="h-8 w-8 text-sky-primary" />
+          <h1 className="text-2xl font-bold text-sky-text-primary flex items-center gap-3">
+            <LineChartIcon className="h-6 w-6 text-sky-primary" />
             Forecast Intelligence
           </h1>
           <p className="text-sky-text-secondary flex items-center gap-2 font-medium">
@@ -762,7 +762,7 @@ export default function ForecastIntelligencePage() {
                       placeholder="Preset name (e.g. My Top 3)..." 
                       value={newPresetName}
                       onChange={e => setNewPresetName(e.target.value)}
-                      className="text-xs bg-sky-background border border-sky-border rounded px-2 py-1 flex-1 text-sky-text-primary focus:outline-none focus:border-sky-primary"
+                      className="text-xs bg-sky-background border border-sky-border rounded px-2 py-1 flex-1 text-sky-text-primary focus:outline-none focus:ring-1 focus:ring-sky-primary focus:border-transparent"
                     />
                     <Button size="sm" className="h-7 text-xs px-2.5 bg-sky-primary text-white" onClick={handleSaveCustomPreset}>
                       Save
@@ -877,7 +877,7 @@ export default function ForecastIntelligencePage() {
                               style={{ accentColor: color }}
                             />
                             <span className="flex items-center gap-2 text-sky-text-primary">
-                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: isUnavailable ? 'gray' : color }}></span>
+                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: isUnavailable ? 'gray' : color }}></span>
                               <span className={cn(isIsolated && "font-bold text-sky-primary")}>{model.name}</span>
                             </span>
                           </label>
@@ -1076,7 +1076,7 @@ export default function ForecastIntelligencePage() {
 
              <CardContent className="p-4 md:p-6">
                {/* Feature #8: Attached Ref for PNG export snapshot */}
-               <div ref={chartContainerRef} className="h-[460px] w-full">
+               <div ref={chartContainerRef} className="h-115 w-full">
                  <ResponsiveContainer width="100%" height="100%">
                    <ComposedChart data={chartData} margin={{ top: 20, right: 15, left: -20, bottom: 10 }}>
                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />

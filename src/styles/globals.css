@@ -4,14 +4,18 @@
   :root {
     /* Light Mode - Crisp, subtle, very premium icy aesthetic */
     --background: #f8fafc;
+    --sidebar: #f1f5f9;
+    --header: #ffffff;
     --surface: #ffffff;
     --surface-elevated: #f1f5f9;
+    --surface-interactive: #e2e8f0;
     
     --border: #e2e8f0;
     --border-glass: rgba(255, 255, 255, 0.4);
     
     --text-primary: #0f172a;
     --text-secondary: #64748b;
+    --text-muted: #94a3b8;
     
     /* Vibrant, rich primary colors */
     --accent: #2563eb;
@@ -34,37 +38,49 @@
   }
 
   .dark {
-    /* Dark Mode - Deep midnight, rich and modern */
-    --background: #030712; /* Slate 950 but deeper */
-    --surface: #0f172a; 
-    --surface-elevated: #1e293b;
+    /* Dark Mode - Premium Weather Intelligence Command Center */
+    --background: #070b14;
+    --sidebar: #0a1020;
+    --header: #0b1120;
+    --surface: #101827; 
+    --surface-elevated: #151f32;
+    --surface-interactive: #1a263a;
     
-    --border: #1e293b;
+    --border: #26334a;
     --border-glass: rgba(255, 255, 255, 0.08);
     
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
+    --text-primary: #f5f7fb;
+    --text-secondary: #9aa8bd;
+    --text-muted: #64748b;
     
-    --accent: #3b82f6;
-    --accent-hover: #60a5fa;
-    --accent-ai: #a78bfa;
+    --accent: #4f8cff;
+    --accent-hover: #6ea0ff;
+    --accent-ai: #8b7cff;
     
-    --shadow-sm: 0 2px 4px 0 rgba(0, 0, 0, 0.1);
-    --shadow-md: 0 8px 16px -4px rgba(0, 0, 0, 0.2);
-    --shadow-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.3);
-    --shadow-glow: 0 0 30px rgba(167, 139, 250, 0.15);
+    --danger: #ff6b6b;
+    --warning: #f5b84b;
+    --success: #20c997;
+    
+    --shadow-sm: 0 2px 4px 0 rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 8px 16px -4px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.5);
+    --shadow-glow: 0 0 30px rgba(79, 140, 255, 0.15);
   }
 }
 
 @theme {
   --color-sky-background: var(--background);
+  --color-sky-sidebar: var(--sidebar);
+  --color-sky-header: var(--header);
   --color-sky-surface: var(--surface);
   --color-sky-surface-elevated: var(--surface-elevated);
+  --color-sky-surface-interactive: var(--surface-interactive);
   
   --color-sky-border: var(--border);
   
   --color-sky-text-primary: var(--text-primary);
   --color-sky-text-secondary: var(--text-secondary);
+  --color-sky-text-muted: var(--text-muted);
   
   --color-sky-primary: var(--accent);
   --color-sky-primary-hover: var(--accent-hover);

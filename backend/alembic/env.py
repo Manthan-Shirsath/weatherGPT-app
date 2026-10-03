@@ -28,6 +28,10 @@ if config.config_file_name is not None:
 
 # Import model metadata
 from backend.app.models.weather_snapshot import Base
+import backend.app.models.chat
+import backend.app.models.subscription
+import backend.app.models.core
+
 target_metadata = Base.metadata
 
 def get_url():

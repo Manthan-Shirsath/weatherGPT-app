@@ -1,6 +1,6 @@
 import datetime
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from backend.app.services.agent.context import (
     resolve_temporal_reference,
@@ -116,21 +116,36 @@ async def test_recommendation_service_future_date_awareness():
     tmrw_iso = (today + datetime.timedelta(days=1)).isoformat()
 
     # Query recommendation for tomorrow
-    rec_res = await RecommendationService.get_recommendations(
-        city_name="Pune",
-        activity="umbrella",
-        date="tomorrow"
-    )
+    with patch("backend.app.services.weather_hub.weather_hub.get_weather_for_city", new_callable=AsyncMock) as mock_hub:
+        mock_hub.return_value = {
+            "city": "Pune",
+            "daily": [
+                {
+                    "date_iso": str(datetime.date.today()),
+                    "rainChance": 10
+                },
+                {
+                    "date_iso": tmrw_iso,
+                    "rainChance": 90,
+                    "daily_precipitation_probability": 90
+                }
+            ]
+        }
+        rec_res = await RecommendationService.get_recommendations(
+            city_name="Pune",
+            activity="umbrella",
+            date="tomorrow"
+        )
 
-    assert rec_res.get("status") == "ready"
-    assert rec_res.get("target_date") == tmrw_iso
+        assert rec_res.get("status") == "ready"
+        assert rec_res.get("target_date") == tmrw_iso
 
-    umbrella_rec = rec_res.get("recommendations")
-    if isinstance(umbrella_rec, list):
-        umbrella_rec = next((r for r in umbrella_rec if r["activity"] == "umbrella"), None)
-    assert umbrella_rec is not None
-    assert umbrella_rec.get("activity") == "umbrella"
-    assert "accessible" in umbrella_rec["action"].lower()
+        umbrella_rec = rec_res.get("recommendations")
+        if isinstance(umbrella_rec, list):
+            umbrella_rec = next((r for r in umbrella_rec if r["activity"] == "umbrella"), None)
+        assert umbrella_rec is not None
+        assert umbrella_rec.get("activity") == "umbrella"
+        assert "accessible" in umbrella_rec["action"].lower()
 
 
 @pytest.mark.anyio

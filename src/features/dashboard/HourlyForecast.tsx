@@ -28,7 +28,7 @@ export function HourlyForecast({ isLoading, hourly }: HourlyForecastProps) {
   return (
     <section className="space-y-5">
       <div className="flex items-center justify-between px-2">
-        <h2 className="text-2xl font-bold text-sky-text-primary tracking-tight">Next Hours</h2>
+        <h2 className="text-[18px] font-bold text-sky-text-primary tracking-tight">Next Hours</h2>
         <Link to="/forecast">
           <Button variant="ghost" size="sm" className="text-sky-primary text-sm font-semibold hover:bg-sky-surface-elevated/80 rounded-xl px-4 py-2 group transition-all">
             View Details 
@@ -40,25 +40,25 @@ export function HourlyForecast({ isLoading, hourly }: HourlyForecastProps) {
       <div className="relative group/scroll">
         <button 
           onClick={scrollLeft}
-          className="absolute left-2 top-1/2 -translate-y-1/2 z-20 bg-sky-surface/90 backdrop-blur-md border border-sky-border shadow-md hover:shadow-lg hover:scale-110 p-2.5 rounded-full opacity-0 group-hover/scroll:opacity-100 transition-all disabled:opacity-0 hidden md:flex items-center justify-center text-sky-text-primary"
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-20 bg-sky-surface/90 backdrop-blur-md border border-sky-border shadow-md hover:shadow-lg hover:scale-110 p-2.5 rounded-full opacity-0 group-hover/scroll:opacity-100 transition-all hidden md:flex items-center justify-center text-sky-text-primary"
         >
           <ChevronLeft className="h-6 w-6" />
         </button>
 
         {/* Fading Edges for scroll */}
-        <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-sky-background to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-sky-background to-transparent z-10 pointer-events-none" />
+        <div className="absolute left-0 top-0 bottom-0 w-12 bg-linear-to-r from-sky-background to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-12 bg-linear-to-l from-sky-background to-transparent z-10 pointer-events-none" />
 
         <div 
           ref={scrollRef}
-          className="flex space-x-4 overflow-x-auto pb-6 pt-2 scrollbar-hide snap-x snap-mandatory px-4"
+          className="flex space-x-3 overflow-x-auto pb-4 pt-2 hide-scrollbar snap-x snap-mandatory px-2"
         >
           {isLoading ? (
             Array.from({length: 8}).map((_, i) => (
-              <Skeleton key={i} className="min-w-[110px] h-44 rounded-3xl shrink-0" />
+              <Skeleton key={i} className="min-w-25 h-40 rounded-2xl shrink-0" />
             ))
           ) : !hourly || hourly.length === 0 ? (
-            <div className="w-full text-center py-10 text-sky-text-secondary bg-sky-surface/50 border border-sky-border rounded-3xl">
+            <div className="w-full text-center py-10 text-sky-text-secondary bg-sky-surface/50 border border-sky-border rounded-2xl">
               No hourly data available
             </div>
           ) : (
@@ -77,18 +77,18 @@ export function HourlyForecast({ isLoading, hourly }: HourlyForecastProps) {
 
               return (
                 <div key={idx} className={cn(
-                  "relative min-w-[110px] shrink-0 text-center snap-start transition-all duration-300 hover:-translate-y-2 rounded-3xl cursor-default group/card", 
+                  "relative min-w-25 shrink-0 text-center snap-start transition-all duration-300 hover:-translate-y-1 rounded-2xl cursor-default group/card overflow-hidden", 
                   isNow 
-                    ? "bg-gradient-to-b from-sky-primary to-indigo-600 text-white shadow-lg shadow-sky-primary/30 border border-sky-primary/50" 
-                    : "glass-card text-sky-text-primary"
+                    ? "bg-sky-surface-elevated border border-sky-primary/30 shadow-md shadow-sky-primary/5" 
+                    : "bg-sky-surface border border-sky-border hover:bg-sky-surface-interactive/50"
                 )}>
                   
                   {isNow && (
-                    <div className="absolute -inset-0.5 bg-sky-primary rounded-3xl blur opacity-30 animate-pulse-slow -z-10" />
+                    <div className="absolute top-0 left-0 right-0 h-0.75 bg-sky-primary shadow-[0_0_8px_rgba(79,140,255,0.8)]" />
                   )}
 
-                  <div className="p-5 flex flex-col items-center justify-between h-44 space-y-4">
-                    <span className={cn("text-xs font-bold tracking-wider uppercase", isNow ? "text-sky-100" : "text-sky-text-secondary")}>
+                  <div className="p-4 flex flex-col items-center justify-between h-40 space-y-3">
+                    <span className={cn("text-[11px] font-bold tracking-wider uppercase", isNow ? "text-sky-primary" : "text-sky-text-secondary")}>
                       {isNow ? 'Now' : timeDisplay}
                     </span>
                     
@@ -100,18 +100,18 @@ export function HourlyForecast({ isLoading, hourly }: HourlyForecastProps) {
                        />
                     </div>
                     
-                    <span className="text-2xl font-black tracking-tighter">
+                    <span className={cn("text-xl font-black tracking-tighter", isNow ? "text-sky-text-primary" : "text-sky-text-primary")}>
                       {hour.tempC !== undefined 
                         ? `${Math.round(hour.tempC)}°` 
                         : hour.temp !== undefined && !isNaN(hour.temp) ? `${Math.round(hour.temp)}°` : '--°'}
                     </span>
                     
-                    <div className="h-6 flex items-center justify-center w-full">
+                    <div className="h-5 flex items-center justify-center w-full">
                       {pop > 0 && (
-                        <div className={cn("flex items-center text-[11px] font-bold px-3 py-1 rounded-full w-full justify-center transition-colors", 
-                          isNow ? "bg-white/20 text-white shadow-inner" : "bg-sky-surface-elevated text-sky-primary group-hover/card:bg-sky-primary/10"
+                        <div className={cn("flex items-center text-[10px] font-bold px-2 py-0.5 rounded-md w-full justify-center transition-colors", 
+                          isNow ? "bg-sky-primary/15 text-sky-primary" : "bg-sky-surface-interactive text-sky-primary group-hover/card:bg-sky-primary/10"
                         )}>
-                          <Droplets className="h-3 w-3 mr-1.5" />
+                          <Droplets className="h-3 w-3 mr-1" />
                           {pop}%
                         </div>
                       )}

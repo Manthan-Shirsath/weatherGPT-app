@@ -233,7 +233,12 @@ class AgentRegistry:
     }
 
     @classmethod
-    def get_agent(cls, mode: AgentMode) -> Optional[AgentDefinition]:
+    def get_agent(cls, mode: Any) -> Optional[AgentDefinition]:
+        if isinstance(mode, str):
+            try:
+                mode = AgentMode(mode.lower())
+            except ValueError:
+                return None
         return cls._agents.get(mode)
 
     @classmethod

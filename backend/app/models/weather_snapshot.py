@@ -7,7 +7,8 @@ from sqlalchemy import (
     String,
     Text,
     DateTime,
-    Index
+    Index,
+    Boolean
 )
 from sqlalchemy.orm import declarative_base
 
@@ -46,6 +47,10 @@ class WeatherSnapshot(Base):
     skycast_risk_level = Column(String(20), nullable=True)  # green, yellow, orange, red
     highest_risk = Column(String(100), nullable=True)
     active_hazards = Column(Text, nullable=True)  # Comma-separated or JSON string of active hazards
+    
+    # Provider & Freshness Meta
+    provider = Column(String(50), nullable=True)
+    is_stale = Column(Boolean, nullable=False, default=False)
 
     __table_args__ = (
         Index("idx_weather_snapshots_city_timestamp", "city", "timestamp", unique=True),
@@ -76,5 +81,7 @@ class WeatherSnapshot(Base):
             "conditionText": self.condition_text,
             "skycastRiskLevel": self.skycast_risk_level,
             "highestRisk": self.highest_risk,
-            "activeHazards": self.active_hazards
+            "activeHazards": self.active_hazards,
+            "provider": self.provider,
+            "isStale": self.is_stale
         }

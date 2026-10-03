@@ -205,6 +205,30 @@ export const getModeConfigs = (t: TFunction): ModeConfig[] => [
     ],
     status: 'active',
   },
+
+  // ── Climate & Research ───────────────────────────────────────────────────
+  {
+    id: 'research',
+    label: t('weathergpt.modes.climate.label', 'Climate Intelligence'),
+    description: t('weathergpt.modes.climate.desc', 'Historical weather trends, anomalies, climate baselines & research'),
+    icon: Sparkles,
+    accentColor: 'indigo-500',
+    badgeColor: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
+    headerAccentClass: 'mode-accent-research',
+    placeholder: (city) => t('weathergpt.modes.climate.placeholder', { city, defaultValue: `Ask about temperature anomalies, historical climate data, or precipitation trends in ${city}...` }),
+    quickContextChips: [
+      { label: t('weathergpt.modes.climate.chip1_label', '📈 Historical Trends'), attach: t('weathergpt.modes.climate.chip1_attach', 'historical weather trends') },
+      { label: t('weathergpt.modes.climate.chip2_label', '🌡️ Temp Anomalies'), attach: t('weathergpt.modes.climate.chip2_attach', 'temperature anomaly vs normal') },
+      { label: t('weathergpt.modes.climate.chip3_label', '📊 Rainfall Normal'), attach: t('weathergpt.modes.climate.chip3_attach', 'seasonal rainfall vs historical average') },
+      { label: t('weathergpt.modes.climate.chip4_label', '📅 Decadal Changes'), attach: t('weathergpt.modes.climate.chip4_attach', 'climate shift over past decade') },
+    ],
+    suggestedQuestions: (city) => [
+      { label: t('weathergpt.modes.climate.sq1_label', 'Historical Baseline'), query: t('weathergpt.modes.climate.sq1_query', { city, defaultValue: `How do current temperatures in ${city} compare to the 30-year historical baseline?` }), icon: '📈' },
+      { label: t('weathergpt.modes.climate.sq2_label', 'Precipitation Trends'), query: t('weathergpt.modes.climate.sq2_query', { city, defaultValue: `Analyze historical monsoon and rainfall variability for ${city}` }), icon: '🌧️' },
+      { label: t('weathergpt.modes.climate.sq3_label', 'Extreme Heat Frequency'), query: t('weathergpt.modes.climate.sq3_query', { city, defaultValue: `What is the historical frequency of extreme heat events in ${city}?` }), icon: '🌡️' },
+    ],
+    status: 'active',
+  },
 ];
 
 // ---------------------------------------------------------------------------

@@ -1,15 +1,23 @@
-import httpx
+from fastapi.testclient import TestClient
+import sys
+import os
+
+# Add the project root to sys.path
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+from main import app
+
+client = TestClient(app)
 
 def test_weather_api():
-    cities = ['Pune', 'Mumbai', 'New Delhi', 'London', 'Tokyo', 'New York']
+    cities = ['Pune'] # Just test one to be fast and not exhaust API rate limits
     for city in cities:
-        r = httpx.get(f'http://127.0.0.1:8000/api/weather?city={city}', timeout=10.0)
+        r = client.get(f'/api/weather?city={city}')
+        assert r.status_code == 200
         data = r.json()
-        print(f"[{r.status_code}] {city} -> {data['displayLocation']}: {data['tempC']}°C ({data['condition']}) | Insight: \"{data['insight']['title']}\" | Hourly count: {len(data['hourly'])} | 7-day: {[d['day'] for d in data['daily']]}")
+        assert 'displayLocation' in data
+        assert 'tempC' in data
 
     # Invalid city test
-    inv_r = httpx.get('http://127.0.0.1:8000/api/weather?city=ThisCityDoesNotExistXYZ999', timeout=10.0)
-    print(f"Invalid city status: {inv_r.status_code}, body: {inv_r.json()}")
-
-if __name__ == '__main__':
-    test_weather_api()
+    inv_r = client.get('/api/weather?city=ThisCityDoesNotExistXYZ999')
+    assert inv_r.status_code == 404

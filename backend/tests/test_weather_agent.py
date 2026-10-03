@@ -333,7 +333,7 @@ def test_groq_provider_initialization():
     agent = WeatherGPTAgent(provider="groq", api_key="gsk_dummy_test_key_for_unit_tests")
     assert agent.provider == "groq"
     assert "groq.com" in agent.base_url
-    assert agent.model == "openai/openai/gpt-oss-120b"
+    assert "llama-3.3-70b-versatile" in agent.model
     assert agent.api_key == "gsk_dummy_test_key_for_unit_tests"
 
 

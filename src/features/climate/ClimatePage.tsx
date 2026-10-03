@@ -144,7 +144,7 @@ export default function ClimatePage() {
   }, [rainAnomalyPct]);
 
   return (
-    <div className="flex flex-col h-full bg-sky-background p-4 md:p-8 overflow-y-auto">
+    <div className="flex flex-col h-full bg-sky-background p-4 md:p-6 overflow-y-auto">
       
       {/* ========================================================================= */}
       {/* TOP HEADER & PRIMARY CLIMATE RANGE CONTROLS                               */}
@@ -155,7 +155,7 @@ export default function ClimatePage() {
             <span className="p-2 rounded-xl bg-sky-primary/10 text-sky-primary">
               <BarChart3 className="h-6 w-6" />
             </span>
-            <h1 className="text-2xl md:text-3xl font-bold text-sky-text-primary tracking-tight">
+            <h1 className="text-xl md:text-2xl font-bold text-sky-text-primary tracking-tight">
               Climate Intelligence
             </h1>
             <span className="text-xs px-2.5 py-0.5 font-semibold rounded-full bg-sky-ai/10 text-sky-ai border border-sky-ai/20">
@@ -299,7 +299,7 @@ export default function ClimatePage() {
           {/* ========================================================================= */}
           {/* 1. SKYCAST AI CLIMATE INTELLIGENCE BRIEFING                               */}
           {/* ========================================================================= */}
-          <Card className="border-sky-ai/30 bg-gradient-to-r from-sky-ai/5 via-sky-primary/5 to-transparent mb-6 shadow-xs overflow-hidden relative">
+          <Card className="border-sky-ai/30 bg-linear-to-r from-sky-ai/5 via-sky-primary/5 to-transparent mb-6 shadow-xs overflow-hidden relative">
             <div className="absolute top-0 right-0 p-3 opacity-15 pointer-events-none">
               <Sparkles className="h-24 w-24 text-sky-ai" />
             </div>
@@ -549,11 +549,11 @@ export default function ClimatePage() {
             </CardHeader>
 
             <CardContent className="pt-6">
-              <div className="h-[380px] w-full">
+              <div className="h-95 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   
                   {/* View 1: Temperature Actual vs Baseline Normal with Diurnal Envelope */}
-                  {activeChartTab === 'temperature' && (
+                  {activeChartTab === 'temperature' ? (
                     <ComposedChart data={timeseries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
@@ -620,10 +620,9 @@ export default function ClimatePage() {
                         dot={false}
                       />
                     </ComposedChart>
-                  )}
-
-                  {/* View 2: Rainfall Observations vs Baseline */}
-                  {activeChartTab === 'rainfall' && (
+                  ) : 
+                  /* View 2: Rainfall Observations vs Baseline */
+                  activeChartTab === 'rainfall' ? (
                     <ComposedChart data={timeseries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                       <XAxis 
@@ -662,10 +661,9 @@ export default function ClimatePage() {
                         dot={false}
                       />
                     </ComposedChart>
-                  )}
-
-                  {/* View 3: Temperature Anomalies Divergence (Red / Blue) */}
-                  {activeChartTab === 'anomalies' && (
+                  ) : 
+                  /* View 3: Temperature Anomalies Divergence (Red / Blue) */
+                  activeChartTab === 'anomalies' ? (
                     <ComposedChart data={timeseries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                       <XAxis 
@@ -699,10 +697,9 @@ export default function ClimatePage() {
                         maxBarSize={24}
                       />
                     </ComposedChart>
-                  )}
-
-                  {/* View 4: Cumulative Rainfall Progression vs Normal Timeline */}
-                  {activeChartTab === 'cumulative' && (
+                  ) : 
+                  /* View 4: Cumulative Rainfall Progression vs Normal Timeline */
+                  activeChartTab === 'cumulative' ? (
                     <ComposedChart data={timeseries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                       <XAxis 
@@ -742,7 +739,7 @@ export default function ClimatePage() {
                         dot={false}
                       />
                     </ComposedChart>
-                  )}
+                  ) : null}
 
                 </ResponsiveContainer>
               </div>
@@ -869,7 +866,7 @@ export default function ClimatePage() {
                 </div>
               </CardHeader>
               <CardContent className="pt-4">
-                <div className="h-[260px] w-full">
+                <div className="h-65 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={seasonal.months || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
@@ -1104,7 +1101,7 @@ export default function ClimatePage() {
 
               {showRecentDrilldown && (
                 <div className="p-4 border-t border-sky-border/40 animate-in fade-in">
-                  <div className="h-[240px] w-full mb-4">
+                  <div className="h-60 w-full mb-4">
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={recentHourly} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />

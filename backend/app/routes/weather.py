@@ -139,4 +139,35 @@ async def get_weather_radar(city: Optional[str] = Query("Pune", description="Cit
     return data.get("radar", {})
 
 
+@router.get("/weather/forecast")
+async def get_weather_forecast(
+    city: Optional[str] = Query(None, description="City name to search"),
+    lat: Optional[float] = Query(None, description="Latitude coordinate"),
+    lon: Optional[float] = Query(None, description="Longitude coordinate"),
+    fresh: Optional[bool] = Query(False, description="Force refresh from upstream provider")
+):
+    """
+    Returns normalized weather forecast data (CanonicalWeatherDataset) explicitly.
+    """
+    if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
+        try:
+            force = bool(fresh) if isinstance(fresh, bool) else False
+            return await weather_hub.get_point_weather(float(lat), float(lon), force_refresh=force)
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Failed to fetch coordinate forecast: {str(exc)}")
+
+    city_str = city if isinstance(city, str) else "Pune"
+    city_clean = (city_str or "Pune").strip()
+    if not city_clean:
+        raise HTTPException(status_code=400, detail="City name cannot be empty")
+
+    try:
+        force = bool(fresh) if isinstance(fresh, bool) else False
+        return await weather_hub.get_weather_for_city(city_clean, force_refresh=force)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Forecast service error: {str(exc)}")
+
+
 

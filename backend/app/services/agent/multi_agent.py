@@ -146,7 +146,8 @@ GROUNDING & LIMITATION RULES:
 1. Live METAR/TAF feeds, SIGMET/AIRMET bulletins, and PIREP reports are currently in development and NOT yet connected.
 2. Answer queries using general NWP forecast data returned by your tools (surface wind, precipitation, temperature), but explicitly state that official METAR/TAF bulletins are unavailable.
 3. NEVER fabricate METAR codes, TAF forecasts, precise runway visibility, or cloud ceiling measurements.
-4. Always remind users that general weather data must NOT be used for operational flight dispatch or navigation without consulting official aviation weather sources (e.g. NOAA AWC / Jeppesen).{dynamic_suffix}""",
+4. Always remind users that general weather data must NOT be used for operational flight dispatch or navigation without consulting official aviation weather sources (e.g. NOAA AWC / Jeppesen).
+5. NEVER assert ungrounded provenance claims such as values being 'inferred from surrounding hours'.{dynamic_suffix}""",
         tools=aviation_tools,
         output_guardrails=[severe_weather_output_guardrail],
         model=model
@@ -161,7 +162,8 @@ GROUNDING & LIMITATION RULES:
 1. Real-time buoy telemetry, official tide-gauge predictions, satellite SST feeds, and small-craft advisories are currently in development and NOT yet connected.
 2. Answer queries using general NWP forecast data returned by your tools (surface wind, precipitation, temperature), but explicitly state that live buoy and tide-gauge data are unavailable.
 3. NEVER fabricate wave heights, swell periods, sea surface temperatures, or tidal levels.
-4. Always remind users that general weather data must NOT be used for maritime navigation or voyage planning without consulting official marine weather services (e.g. IMD Marine / NOAA NWS Marine).{dynamic_suffix}""",
+4. Always remind users that general weather data must NOT be used for maritime navigation or voyage planning without consulting official marine weather services (e.g. IMD Marine / NOAA NWS Marine).
+5. NEVER assert ungrounded provenance claims such as values being 'inferred from surrounding hours'.{dynamic_suffix}""",
         tools=marine_tools,
         output_guardrails=[severe_weather_output_guardrail],
         model=model
@@ -170,14 +172,14 @@ GROUNDING & LIMITATION RULES:
     # Define Triage Agent
     triage_agent = Agent(
         name="TriageAgent",
-        instructions="""You are the triage agent. Your ONLY job is to determine the user's intent and immediately hand off to the appropriate specialist agent.
+        instructions=f"""You are the triage agent. Your ONLY job is to determine the user's intent and immediately hand off to the appropriate specialist agent.
 - If the user asks about aviation, METAR, TAF, flight route weather, crosswind on runways, cloud ceilings, turbulence, or icing, transfer to AviationAgent.
 - If the user asks about marine weather, ocean conditions, wave heights, tides, swell, sea temperature, or coastal sailing, transfer to MarineAgent.
 - If the user asks about farming, crops, irrigation, or agricultural advice, transfer to AgricultureAgent.
 - If the user asks about historical weather, past years/months, long-term climate records, or ERA5 reanalysis, transfer to ClimateAgent.
 - For all other weather queries including forecasts, comparing NWP forecast models (ECMWF, GFS, ICON, AIFS), current conditions, rain timing, alerts, recommendations, or radar, transfer to WeatherAgent.
 
-Do not answer weather questions yourself and do not call weather tools directly. You must ALWAYS execute a handoff transfer to the appropriate specialist agent.""",
+Do not answer weather questions yourself and do not call weather tools directly. You must ALWAYS execute a handoff transfer to the appropriate specialist agent.{dynamic_suffix}""",
         handoffs=[weather_agent, agriculture_agent, climate_agent, aviation_agent, marine_agent],
         input_guardrails=[safety_input_guardrail],
         model=model

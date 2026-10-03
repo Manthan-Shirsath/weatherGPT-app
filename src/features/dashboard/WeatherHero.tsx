@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
-import { Sparkles, MapPin, Droplets, Wind, Thermometer, Navigation } from 'lucide-react';
+import { Sparkles, MapPin, Droplets, Wind, Thermometer, Navigation, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getTimeOfDay } from '@/lib/weather-visuals';
 import { WeatherBackground } from './WeatherBackground';
@@ -21,9 +21,9 @@ export function WeatherHero({ isLoading, location, current, sun, hourly, onOpenW
   // Determine date and time to display
   const currentDate = useMemo(() => {
     return new Intl.DateTimeFormat('en-US', { 
-      weekday: 'long', 
+      weekday: 'short', 
       day: 'numeric', 
-      month: 'long', 
+      month: 'short', 
       year: 'numeric' 
     }).format(new Date());
   }, []);
@@ -32,10 +32,10 @@ export function WeatherHero({ isLoading, location, current, sun, hourly, onOpenW
     if (hourly && hourly.length > 0 && hourly[0].time) {
       const d = new Date(hourly[0].time);
       if (!isNaN(d.getTime())) {
-        return new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(d);
+        return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(d);
       }
     }
-    return new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit' }).format(new Date());
+    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date());
   }, [hourly]);
 
   // Determine time of day for dynamic background
@@ -44,115 +44,142 @@ export function WeatherHero({ isLoading, location, current, sun, hourly, onOpenW
     return getTimeOfDay(localHour, sun?.sunrise, sun?.sunset);
   }, [hourly, sun]);
 
+  // Generate dynamic brief for AI insight
+  const aiBrief = useMemo(() => {
+    if (!hourly || hourly.length === 0) return t('weathergpt.analyzing', 'Analyzing weather data...');
+    const rainChance = hourly.find((h: any) => h.rainChance > 10)?.rainChance || 0;
+    const isRaining = rainChance > 20;
+    const isWindy = current?.windSpeedKmh > 20;
+    
+    let brief = "Mostly dry tonight. ";
+    if (isWindy) brief += "Breezy conditions. ";
+    else brief += "Light winds. ";
+    
+    if (isRaining) {
+      brief += `Expected rain later (${rainChance}% chance).`;
+    } else if (current?.condition?.toLowerCase().includes('cloud')) {
+      brief += "Cloudy skies. A low chance of rain (20%).";
+    } else {
+      brief += "Clear skies tonight.";
+    }
+    return brief;
+  }, [hourly, current, t]);
+
   if (isLoading) {
-    return <Skeleton className="w-full h-[520px] rounded-[2rem]" />;
+    return <Skeleton className="w-full h-95 rounded-4xl" />;
   }
 
   return (
-    <section className="relative w-full h-[520px] rounded-[2.5rem] overflow-hidden shadow-[var(--shadow-lg)] border-0 isolate group transition-all duration-700">
-      {/* Dynamic Animated CSS Background */}
-      <WeatherBackground condition={current?.condition} timeOfDay={timeOfDay} />
-      
-      {/* Premium Gradients for Depth */}
-      <div className="absolute inset-0 z-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-90 mix-blend-multiply transition-opacity duration-1000" />
-      <div className="absolute inset-0 z-0 bg-gradient-to-r from-black/60 via-transparent to-black/30 opacity-70" />
-      
-      {/* Inner Glow / Border */}
-      <div className="absolute inset-0 z-0 rounded-[2.5rem] border border-white/10 pointer-events-none" />
-      
-      <div className="relative z-10 p-8 md:p-14 h-full flex flex-col justify-between">
-        
-        {/* Top: Location & Date */}
-        <div className="flex flex-col gap-2">
-          <div className="inline-flex items-center space-x-2 bg-black/20 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full w-max shadow-sm">
-            <Navigation className="h-4 w-4 text-sky-400" />
-            <span className="text-sm font-semibold tracking-wide text-white">
-              {location?.displayLocation || location?.city || 'Unknown Location'}
-            </span>
-          </div>
-          <p className="text-white/70 font-medium tracking-wide drop-shadow-md text-sm ml-2">
-            {currentDate} &bull; {localTime}
-          </p>
+    <div className="flex flex-col gap-4 w-full">
+      <section className="relative w-full overflow-hidden rounded-4xl shadow-sm border border-sky-border isolate transition-all duration-700 bg-sky-surface">
+        {/* Dynamic Animated CSS Background - subtle now */}
+        <div className="absolute inset-0 z-0 opacity-40 mix-blend-overlay">
+          <WeatherBackground condition={current?.condition} timeOfDay={timeOfDay} />
         </div>
-
-        {/* Bottom Area: Weather Stats & WeatherGPT */}
-        <div className="flex flex-col lg:flex-row justify-between items-end gap-10">
+        
+        {/* Layered Gradients */}
+        <div className="absolute inset-0 z-0 bg-linear-to-t from-sky-background/90 via-sky-surface/40 to-transparent" />
+        <div className="absolute inset-0 z-0 bg-sky-surface/20 backdrop-blur-[2px]" />
+        
+        <div className="relative z-10 p-5 md:p-8 h-full flex flex-col justify-between">
           
-          {/* Main Weather Information */}
-          <div className="text-white w-full lg:w-auto flex flex-col drop-shadow-2xl">
-            <div className="flex items-start">
-              <h1 className="text-[6rem] sm:text-[9rem] md:text-[11rem] font-black tracking-tighter leading-none" style={{ textShadow: '0 10px 40px rgba(0,0,0,0.5)' }}>
-                {current?.tempC !== undefined ? Math.round(current.tempC) : '--'}
+          {/* Top: Location & Date */}
+          <div className="flex flex-col gap-1 mb-6">
+            <div className="inline-flex items-center space-x-2 w-max">
+              <MapPin className="h-5 w-5 text-sky-primary" />
+              <h1 className="text-xl font-bold tracking-tight text-sky-text-primary">
+                {location?.displayLocation || location?.city || 'Unknown Location'}
               </h1>
-              <span className="text-4xl sm:text-5xl md:text-7xl font-bold mt-2 sm:mt-4 ml-1 text-white/80">°</span>
             </div>
-            
-            <div className="flex items-center space-x-2 sm:space-x-4 mb-6 sm:mb-8 mt-2 sm:-mt-2">
-               <div className="bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20 shadow-lg">
-                 <img 
-                   src={`https://openweathermap.org/img/wn/${
-                     {
-                       'sun': '01d', 'clear': '01d', 'partly-cloudy': '02d', 
-                       'cloudy': '03d', 'overcast': '04d', 'fog': '50d', 
-                       'rain': '10d', 'snow': '13d', 'thunderstorm': '11d'
-                     }[(current?.icon || '').toLowerCase()] || '02d'
-                   }@2x.png`} 
-                   alt={current?.condition} 
-                   className="h-10 w-10 sm:h-14 sm:w-14 object-contain filter drop-shadow-lg scale-110"
-                 />
-               </div>
-               <span className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-glow line-clamp-1">
-                 {current?.weather_code !== undefined ? t(`weather_codes.${current.weather_code}`) : current?.condition || '--'}
-               </span>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm font-semibold">
-              <div className="flex items-center space-x-2 bg-black/30 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10 hover:bg-black/40 transition-all hover:-translate-y-1 shadow-lg">
-                <Droplets className="h-4 w-4 text-blue-400" />
-                <span className="text-white/90">{current?.humidity || 0}% {t('weather.humidity')}</span>
-              </div>
-              <div className="flex items-center space-x-2 bg-black/30 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10 hover:bg-black/40 transition-all hover:-translate-y-1 shadow-lg">
-                <Wind className="h-4 w-4 text-emerald-400" />
-                <span className="text-white/90">{current?.windSpeedKmh ? Math.round(current.windSpeedKmh) : 0} km/h {t('weather.wind')}</span>
-              </div>
-              <div className="flex items-center space-x-2 bg-black/30 backdrop-blur-xl px-5 py-3 rounded-2xl border border-white/10 hover:bg-black/40 transition-all hover:-translate-y-1 shadow-lg">
-                <Thermometer className="h-4 w-4 text-orange-400" />
-                <span className="text-white/90">{t('weather.feels_like')} {current?.feelsLikeC ? Math.round(current.feelsLikeC) : '--'}°</span>
-              </div>
-            </div>
+            <p className="text-sky-text-secondary font-medium text-sm ml-7">
+              {currentDate} &bull; {localTime}
+            </p>
           </div>
 
-          {/* WeatherGPT Insight Card - Premium AI Feel */}
-          <div className="w-full lg:max-w-[420px] shrink-0 animate-float">
-            <div className="relative group/card">
-              {/* Animated glow behind the card */}
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-sky-ai via-blue-500 to-sky-ai rounded-3xl blur opacity-30 group-hover/card:opacity-60 transition duration-1000 group-hover/card:duration-200 animate-pulse-slow"></div>
-              
-              <div className="relative bg-black/40 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-3xl p-7 hover:bg-black/50 transition-colors flex flex-col">
-                <div className="flex items-start space-x-4 mb-4">
-                  <div className="bg-gradient-to-br from-sky-ai to-blue-600 p-3 rounded-2xl shrink-0 shadow-glow">
-                    <Sparkles className="h-6 w-6 text-white animate-pulse" />
-                  </div>
-                  <div>
-                    <h3 className="text-white font-bold text-lg tracking-tight mb-1">{t('ai_insight.title', 'AI Insight')}</h3>
-                    <p className="text-sm font-medium leading-relaxed text-white/80 line-clamp-3">
-                      {t('weathergpt.analyzing', 'Analyzing weather data...')}
-                    </p>
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
+            {/* Left side: Main Temp & Condition */}
+            <div>
+              <div className="flex items-end gap-3 mb-4">
+                <div className="text-[4rem] font-black tracking-tighter leading-none text-sky-text-primary">
+                  {current?.tempC !== undefined ? Math.round(current.tempC) : '--'}°
                 </div>
-                
-                <Button 
-                  onClick={onOpenWeatherGPT}
-                  className="w-full justify-between font-bold text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl h-12 shadow-sm transition-all hover:scale-[1.02]"
-                >
-                  {t('ai_insight.button')} <span className="ml-2 group-hover/card:translate-x-1 transition-transform">&rarr;</span>
-                </Button>
+                <div className="flex flex-col pb-2">
+                  <span className="text-2xl font-bold tracking-tight text-sky-text-primary">
+                    {current?.weather_code !== undefined ? t(`weather_codes.${current.weather_code}`) : current?.condition || '--'}
+                  </span>
+                  <span className="text-sm font-medium text-sky-text-secondary">
+                    {t('weather.feels_like')} {current?.feelsLikeC ? Math.round(current.feelsLikeC) : '--'}° &bull; {current?.humidity || 0}% Humidity &bull; {current?.windSpeedKmh ? Math.round(current.windSpeedKmh) : 0} km/h Wind
+                  </span>
+                </div>
               </div>
+
+              {/* Divider */}
+              <div className="h-px w-full bg-sky-border/60 my-6" />
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                <div className="flex flex-col gap-1">
+                   <span className="text-sky-text-secondary">Sunset</span>
+                   <span className="font-semibold text-sky-text-primary">{sun?.sunset ? new Date(sun.sunset).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--'}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                   <span className="text-sky-text-secondary">Visibility</span>
+                   <span className="font-semibold text-sky-text-primary">{current?.visibility !== undefined ? `${(current.visibility / 1000).toFixed(1)} km` : '--'}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                   <span className="text-sky-text-secondary">Pressure</span>
+                   <span className="font-semibold text-sky-text-primary">{current?.pressure !== undefined ? `${Math.round(current.pressure)} hPa` : '--'}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                   <span className="text-sky-text-secondary">UV Index</span>
+                   <span className="font-semibold text-sky-text-primary">{current?.uvIndex !== undefined ? current.uvIndex : '0'} Low</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right side: AI Insight Integration */}
+            <div className="flex flex-col justify-end lg:pl-12">
+               <div 
+                 onClick={onOpenWeatherGPT}
+                 className="group/insight cursor-pointer bg-sky-surface-interactive/40 border-l-[3px] border-sky-ai rounded-r-xl p-4 hover:bg-sky-surface-interactive/70 transition-colors"
+               >
+                 <div className="flex items-center gap-2 mb-2">
+                   <Sparkles className="h-4 w-4 text-sky-ai" />
+                   <h3 className="text-sky-text-primary font-bold text-sm">SkyCast Intelligence</h3>
+                 </div>
+                 <p className="text-sm font-medium leading-relaxed text-sky-text-primary line-clamp-3 mb-2">
+                   {aiBrief}
+                 </p>
+                 <span className="text-xs font-semibold text-sky-ai group-hover/insight:underline underline-offset-2 flex items-center gap-1">
+                   View analysis <ChevronRight className="h-3 w-3" />
+                 </span>
+               </div>
             </div>
           </div>
           
+        </div>
+      </section>
+      
+      {/* Today at a glance strip */}
+      <div className="w-full bg-sky-surface rounded-xl border border-sky-border p-4 flex flex-wrap items-center justify-between sm:justify-start sm:gap-12 md:gap-24">
+        <div className="flex flex-col">
+          <span className="text-xs font-bold text-sky-text-secondary uppercase tracking-widest mb-1">High</span>
+          <span className="text-lg font-black text-sky-text-primary">{hourly && hourly.length > 0 ? Math.max(...hourly.slice(0,24).map(h => h.tempC || 0)) : '--'}°</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-bold text-sky-text-secondary uppercase tracking-widest mb-1">Low</span>
+          <span className="text-lg font-black text-sky-text-primary">{hourly && hourly.length > 0 ? Math.min(...hourly.slice(0,24).map(h => h.tempC || 0)) : '--'}°</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-bold text-sky-text-secondary uppercase tracking-widest mb-1">Rain</span>
+          <span className="text-lg font-black text-sky-text-primary">{hourly && hourly.length > 0 ? Math.max(...hourly.slice(0,24).map(h => h.rainChance || 0)) : 0}%</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-bold text-sky-text-secondary uppercase tracking-widest mb-1">Wind</span>
+          <span className="text-lg font-black text-sky-text-primary">{current?.windSpeedKmh ? Math.round(current.windSpeedKmh) : '--'} km/h</span>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
+

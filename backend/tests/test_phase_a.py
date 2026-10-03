@@ -98,7 +98,8 @@ def test_fallback_preserves_context():
             session_id, "When is a good time to play cricket tomorrow?", default_city="Pune"
         )
         
-        with patch("backend.app.services.weather_hub.weather_hub.get_weather_for_city", new_callable=AsyncMock) as mock_hub:
+        with patch("backend.app.services.weather_hub.weather_hub.get_weather_for_city", new_callable=AsyncMock) as mock_hub, \
+             patch("agents.Runner.run", AsyncMock(side_effect=Exception("API Error"))):
             mock_hub.return_value = {
                 "city": "Pune",
                 "tempC": 25,

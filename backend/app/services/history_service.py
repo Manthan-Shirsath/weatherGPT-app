@@ -107,6 +107,10 @@ class HistoryService:
                             logger.debug("⏭️ [HISTORY DEDUP] Skipped duplicate snapshot for '%s' (age: %ds)", city_name, time_diff_sec)
                             return latest
 
+                # Extract Freshness Meta
+                provider = str(weather_data.get("provider", "unknown"))
+                is_stale = bool(weather_data.get("stale", False))
+
                 # Create new persistent snapshot
                 snapshot = WeatherSnapshot(
                     timestamp=now_utc,
@@ -129,14 +133,16 @@ class HistoryService:
                     condition_text=cond_text,
                     skycast_risk_level=risk_level,
                     highest_risk=highest_risk,
-                    active_hazards=active_hazards_str
+                    active_hazards=active_hazards_str,
+                    provider=provider,
+                    is_stale=is_stale
                 )
 
                 session.add(snapshot)
                 await session.commit()
                 await session.refresh(snapshot)
                 cls._last_db_error = None
-                logger.info("💾 [HISTORY SAVED] Persisted snapshot for '%s' in PostgreSQL (id: %s, temp: %.1f°C, risk: %s)", city_name, snapshot.id, temp_c, risk_level)
+                logger.info("💾 [HISTORY SAVED] Persisted snapshot for '%s' in PostgreSQL (id: %s, temp: %.1f°C, risk: %s, provider: %s, stale: %s)", city_name, snapshot.id, temp_c, risk_level, provider, is_stale)
                 return snapshot
 
         except Exception as exc:

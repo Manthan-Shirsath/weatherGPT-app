@@ -89,7 +89,13 @@ class WeatherCollectorWorker:
                 await ws_manager.broadcast_weather_update(city_name, c_data)
 
                 # Broadcast active meteorological warnings
+                transitions = alerts_res.get("transitions", [])
+                for transition in transitions:
+                    # Transition contains type (alert.created, etc), city, and alert payload
+                    await ws_manager.broadcast(transition)
+                    
                 for alert in alerts:
+                    # Continue broadcasting official IMD warnings if present (as they bypass the RiskEngine persistence in this flow)
                     if alert.get("official") is True:
                         await ws_manager.broadcast({
                             "type": "official_weather_alert",
@@ -97,18 +103,6 @@ class WeatherCollectorWorker:
                             "authority": alert.get("authority"),
                             "alert": alert,
                             "timestamp": alert.get("fetchedAt")
-                        })
-                    elif alert.get("displaySeverity") in ["extreme", "severe"] and alert.get("active", True):
-                        await ws_manager.broadcast({
-                            "type": "weather_alert",
-                            "city": city_name,
-                            "severity": alert.get("displaySeverity"),
-                            "alertType": alert.get("event"),
-                            "title": alert.get("title"),
-                            "message": alert.get("description"),
-                            "action": alert.get("action"),
-                            "official": False,
-                            "timestamp": alert.get("lastUpdated")
                         })
             except Exception as e:
                 logger.warning("Collector city '%s' ingestion error: %s", city_name, e)

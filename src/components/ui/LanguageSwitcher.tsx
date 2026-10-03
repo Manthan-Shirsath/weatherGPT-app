@@ -27,11 +27,11 @@ export function LanguageSwitcher() {
     <select
       value={i18n.resolvedLanguage}
       onChange={changeLanguage}
-      className="bg-transparent border border-sky-border/50 text-white text-sm rounded-md px-2 py-1 outline-none focus:border-sky-primary focus:ring-1 focus:ring-sky-primary hover:bg-white/10 transition-colors"
+      className="bg-transparent border border-sky-border/50 text-sky-text-primary text-sm rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-sky-primary hover:bg-sky-surface-elevated transition-colors"
       aria-label="Select Language"
     >
       {LANGUAGES.map((lang) => (
-        <option key={lang.code} value={lang.code} className="text-black bg-white">
+        <option key={lang.code} value={lang.code} className="text-sky-text-primary bg-sky-surface">
           {lang.nativeName} ({lang.label})
         </option>
       ))}

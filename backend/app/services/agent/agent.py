@@ -34,6 +34,7 @@ from backend.app.services.agent.context import (
     conversation_context_tracker,
     format_marathi_weather_reply
 )
+from backend.app.services.agent.uncertainty import ActionableIntelligenceSynthesizer
 
 from backend.app.services.agent.prompts import (
     SYSTEM_INSTRUCTION,
@@ -560,6 +561,15 @@ class WeatherGPTAgent:
                 await self._save_message(session_id, "user", user_text)
                 await self._save_message(session_id, "model", assistant_text)
                 
+                actionable = ActionableIntelligenceSynthesizer.synthesize(
+                    reply_text=assistant_text,
+                    city=state["resolved_city"],
+                    agent_mode=agent_mode,
+                    cards=executed_cards,
+                    sources=sources,
+                    data_status="fresh"
+                )
+
                 return AgentResponse(
                     reply=assistant_text,
                     city=state["resolved_city"],
@@ -568,7 +578,15 @@ class WeatherGPTAgent:
                     cards=executed_cards,
                     sources=sources,
                     data_status="fresh",
-                    conversation_context=context.to_summary_dict() if context else None
+                    conversation_context=context.to_summary_dict() if context else None,
+                    summary=actionable["summary"],
+                    conditions=actionable["conditions"],
+                    forecast=actionable["forecast"],
+                    risks=actionable["risks"],
+                    recommendations=actionable["recommendations"],
+                    uncertainty=actionable["uncertainty"],
+                    freshness=actionable["freshness"],
+                    follow_up_questions=actionable["follow_up_questions"]
                 )
             except InputGuardrailTripwireTriggered as e:
                 msg = e.guardrail_result.output.output_info if e.guardrail_result.output.output_info else "Input rejected by safety policies."
@@ -1127,6 +1145,15 @@ class WeatherGPTAgent:
             await self._save_message(session_id, "user", user_text)
             await self._save_message(session_id, "model", reply)
 
+        actionable_fallback = ActionableIntelligenceSynthesizer.synthesize(
+            reply_text=reply,
+            city=city,
+            agent_mode=context.agent_mode if context else "auto",
+            cards=cards,
+            sources=[SourceItem(type="central_weather_data", timestamp=now_iso, provider="open_meteo")],
+            data_status="degraded" if degraded else "fresh"
+        )
+
         return AgentResponse(
             reply=reply,
             city=city,
@@ -1136,7 +1163,15 @@ class WeatherGPTAgent:
             sources=[SourceItem(type="central_weather_data", timestamp=now_iso, provider="open_meteo")],
             data_status="degraded" if degraded else "fresh",
             conversation_context=context.to_summary_dict() if context else None,
-            is_fallback=True
+            is_fallback=True,
+            summary=actionable_fallback["summary"],
+            conditions=actionable_fallback["conditions"],
+            forecast=actionable_fallback["forecast"],
+            risks=actionable_fallback["risks"],
+            recommendations=actionable_fallback["recommendations"],
+            uncertainty=actionable_fallback["uncertainty"],
+            freshness=actionable_fallback["freshness"],
+            follow_up_questions=actionable_fallback["follow_up_questions"]
         )
 
 

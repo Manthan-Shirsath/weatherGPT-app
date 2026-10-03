@@ -19,9 +19,29 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Drop the old constraint and create the new one
-    op.drop_constraint(op.f('uix_forecast_value_identity'), 'forecast_values', type_='unique')
-    op.create_unique_constraint('uix_forecast_value_identity', 'forecast_values', ['forecast_run_id', 'valid_time', 'lead_hours', 'variable', 'representation'])
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    
+    # Check if constraint exists before dropping
+    has_constraint = False
+    for constraint in inspector.get_unique_constraints('forecast_values'):
+        if constraint['name'] == 'uix_forecast_value_identity':
+            has_constraint = True
+            break
+            
+    if has_constraint:
+        op.drop_constraint('uix_forecast_value_identity', 'forecast_values', type_='unique')
+        
+    # Check if the new constraint with 5 columns already exists
+    # If not, create it
+    columns_in_constraint = []
+    for constraint in inspector.get_unique_constraints('forecast_values'):
+        if constraint['name'] == 'uix_forecast_value_identity':
+            columns_in_constraint = constraint['column_names']
+            break
+            
+    if 'representation' not in columns_in_constraint:
+        op.create_unique_constraint('uix_forecast_value_identity', 'forecast_values', ['forecast_run_id', 'valid_time', 'lead_hours', 'variable', 'representation'])
 
 
 def downgrade() -> None:

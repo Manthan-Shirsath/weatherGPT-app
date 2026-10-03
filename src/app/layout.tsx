@@ -8,67 +8,92 @@ import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, C
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/Dialog';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { BottomNav } from '@/components/ui/BottomNav';
+import { useWeatherWebSocket } from '@/hooks/useWeatherWebSocket';
 
 function NavLinks({ isMobile, onNavigate }: { isMobile?: boolean, onNavigate?: () => void }) {
   const { t } = useTranslation();
   const location = useLocation();
-  const NAV_ITEMS = [
-    { name: t('nav.weathergpt', 'WeatherGPT'), path: '/weathergpt', icon: Sparkles, badge: 'AI' },
-    { name: t('nav.forecast_intelligence', 'Forecast Intelligence'), path: '/forecast-intelligence', icon: Sparkles, badge: 'PRO' },
-    { name: t('nav.dashboard', 'Dashboard'), path: '/', icon: Home },
-    { name: t('nav.weather_map', 'Weather Map'), path: '/map', icon: Map },
-    { name: t('nav.alerts', 'Alerts'), path: '/alerts', icon: AlertTriangle },
-    { name: t('nav.climate', 'Climate'), path: '/climate', icon: CloudRain },
-    { name: t('nav.locations', 'Locations'), path: '/locations', icon: MapPin },
+
+  const NAV_GROUPS = [
+    {
+      label: 'MAIN',
+      items: [
+        { name: t('nav.dashboard', 'Dashboard'), path: '/', icon: Home },
+        { name: t('nav.weathergpt', 'WeatherGPT'), path: '/weathergpt', icon: Sparkles, badge: 'AI' },
+        { name: t('nav.forecast_intelligence', 'Forecast Intelligence'), path: '/forecast-intelligence', icon: Sparkles, badge: 'PRO' },
+      ]
+    },
+    {
+      label: 'WEATHER',
+      items: [
+        { name: t('nav.weather_map', 'Weather Map'), path: '/map', icon: Map },
+        { name: t('nav.alerts', 'Alerts'), path: '/alerts', icon: AlertTriangle },
+        { name: t('nav.climate', 'Climate'), path: '/climate', icon: CloudRain },
+      ]
+    },
+    {
+      label: 'LOCATIONS',
+      items: [
+        { name: t('nav.saved_locations', 'Saved Locations'), path: '/locations', icon: MapPin },
+      ]
+    }
   ];
 
   const primaryPaths = ['/', '/weathergpt', '/map'];
-  const filteredItems = isMobile 
-    ? NAV_ITEMS.filter(item => !primaryPaths.includes(item.path))
-    : NAV_ITEMS;
 
   return (
-    <nav className={cn("space-y-1.5 px-3", isMobile ? "mt-6" : "flex-1 overflow-y-auto py-6")}>
-      {filteredItems.map((item) => {
-        const isActive = location.pathname === item.path;
-        const Icon = item.icon;
+    <nav className={cn("px-3", isMobile ? "mt-6" : "flex-1 overflow-y-auto py-6")}>
+      {NAV_GROUPS.map((group, idx) => {
+        const filteredItems = isMobile 
+          ? group.items.filter(item => !primaryPaths.includes(item.path))
+          : group.items;
+
+        if (filteredItems.length === 0) return null;
+
         return (
-          <Link
-            key={item.name}
-            to={item.path}
-            onClick={onNavigate}
-            className={cn(
-              "group relative flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 overflow-hidden",
-              isActive 
-                ? "text-sky-primary shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.2)]" 
-                : "text-sky-text-secondary hover:text-sky-text-primary hover:bg-sky-surface-elevated/40"
-            )}
-          >
-            {isActive && (
-              <div className="absolute inset-0 bg-sky-primary/10 dark:bg-sky-primary/20 backdrop-blur-md rounded-xl -z-10" />
-            )}
-            {isActive && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-sky-primary rounded-r-full shadow-glow" />
-            )}
-            
-            <div className="flex items-center">
-              <Icon className={cn(
-                "h-4 w-4 mr-3 transition-transform duration-300", 
-                isActive ? "text-sky-primary scale-110" : "text-sky-text-secondary group-hover:text-sky-text-primary group-hover:scale-110"
-              )} />
-              <span className="tracking-wide">{item.name}</span>
+          <div key={group.label} className={cn("mb-4", idx === NAV_GROUPS.length - 1 ? "mb-0" : "")}>
+            <p className="px-3 mb-1.5 text-[11px] font-bold tracking-widest text-sky-text-secondary uppercase">
+              {group.label}
+            </p>
+            <div className="space-y-1">
+              {filteredItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.path}
+                    onClick={onNavigate}
+                    className={cn(
+                      "group relative flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 overflow-hidden",
+                      isActive 
+                        ? "text-sky-primary bg-sky-surface-interactive border-l-[3px] border-sky-primary shadow-sm rounded-l-none rounded-r-xl" 
+                        : "text-sky-text-secondary hover:text-sky-text-primary hover:bg-sky-surface-interactive/50 border-l-[3px] border-transparent rounded-r-xl"
+                    )}
+                  >
+                    <div className="flex items-center">
+                      <Icon className={cn(
+                        "h-4.5 w-4.5 mr-3 transition-transform duration-300", 
+                        isActive ? "text-sky-primary scale-110" : "text-sky-text-secondary group-hover:text-sky-text-primary group-hover:scale-110"
+                      )} />
+                      <span className="tracking-wide">{item.name}</span>
+                    </div>
+                    {item.badge && (
+                      <span className={cn(
+                        "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest shadow-sm",
+                        item.badge === 'AI' ? "bg-sky-ai/10 text-sky-ai" : "bg-sky-primary/10 text-sky-primary"
+                      )}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                )
+              })}
             </div>
-            {item.badge && (
-              <span className={cn(
-                "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-sm",
-                item.badge === 'AI' ? "bg-sky-ai/10 text-sky-ai" : "bg-sky-primary/10 text-sky-primary"
-              )}>
-                {item.badge}
-              </span>
-            )}
-          </Link>
-        )
+          </div>
+        );
       })}
     </nav>
   );
@@ -88,6 +113,55 @@ export function AppLayout() {
   });
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
+
+  const params = new URLSearchParams(location.search);
+  const activeCity = params.get('city') || 'Pune';
+
+  // Enable Real-Time Weather & Alert Subscriptions
+  const { connectionState, isConnected } = useWeatherWebSocket(activeCity);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+
+  // Subscribe to query cache to get real-time temp/stale status for the header
+  useEffect(() => {
+    const observer = new (queryClient as any).getQueryCache().subscribe((event: any) => {
+      if (
+        event.query.queryKey[0] === 'weather' && 
+        event.query.queryKey[1] === 'dashboard' && 
+        event.query.queryKey[2] === activeCity &&
+        event.type === 'updated'
+      ) {
+        setDashboardData(event.query.state.data);
+      }
+    });
+    
+    // Initial load
+    const initialData = queryClient.getQueryData(['weather', 'dashboard', activeCity]);
+    if (initialData) setDashboardData(initialData);
+
+    return () => observer();
+  }, [activeCity, queryClient]);
+
+  const isStale = dashboardData?.meta?.is_stale === true;
+  const currentTemp = dashboardData?.current?.tempC !== undefined ? Math.round(dashboardData.current.tempC) : '--';
+  const currentCond = dashboardData?.current?.condition || 'Clear';
+
+  const [activeAlert, setActiveAlert] = useState<any>(null);
+
+  useEffect(() => {
+    const handleAlert = (e: any) => {
+      const { type, alert } = e.detail;
+      if (['alert.created', 'alert.updated'].includes(type)) {
+        setActiveAlert(alert);
+        setTimeout(() => setActiveAlert(null), 8000); // Auto-hide after 8s
+      } else if (type === 'alert.resolved') {
+        setActiveAlert({ ...alert, resolved: true });
+        setTimeout(() => setActiveAlert(null), 5000);
+      }
+    };
+    window.addEventListener('weather-alert-transition', handleAlert);
+    return () => window.removeEventListener('weather-alert-transition', handleAlert);
+  }, []);
 
   const handleLocationSelect = (city: string) => {
     setIsSearchOpen(false);
@@ -124,32 +198,44 @@ export function AppLayout() {
 
   return (
     <div className="flex h-dvh w-full bg-sky-background overflow-hidden text-sky-text-primary font-sans antialiased">
-      <aside className="hidden lg:flex w-72 flex-col bg-sky-surface/60 backdrop-blur-2xl border-r border-sky-border z-20 transition-all duration-300">
-        <div className="flex h-20 items-center px-8">
-          <div className="bg-linear-to-tr from-sky-primary to-sky-ai p-2 rounded-xl shadow-md mr-3">
+      <aside className="hidden lg:flex w-64 flex-col bg-sky-sidebar border-r border-sky-border z-20 transition-all duration-300">
+        <div className="flex h-16 items-center px-6">
+          <div className="bg-linear-to-tr from-sky-primary to-sky-ai p-2.5 rounded-xl shadow-md mr-3">
             <Sparkles className="h-5 w-5 text-white" />
           </div>
           <div>
             <span className="text-xl font-bold tracking-tight text-sky-text-primary">{t('layout.skycast', 'SkyCast')}</span>
-            <span className="block text-[10px] text-sky-ai font-bold tracking-[0.2em] uppercase -mt-1">{t('layout.intelligence', 'Intelligence')}</span>
+            <span className="block text-[11px] text-sky-ai font-bold tracking-[0.2em] uppercase -mt-0.5">{t('layout.intelligence', 'Intelligence')}</span>
           </div>
         </div>
         
         <NavLinks />
 
-        <div className="p-6">
-           <button onClick={toggleTheme} className="flex w-full items-center justify-between px-4 py-3 text-sm text-sky-text-secondary hover:text-sky-text-primary rounded-xl hover:bg-sky-surface-elevated/60 transition-all duration-300 group border border-transparent hover:border-sky-border">
+        <div className="p-4 pb-3">
+           <button onClick={toggleTheme} className="flex w-full items-center justify-between px-3 py-2 text-[13px] text-sky-text-secondary hover:text-sky-text-primary rounded-lg hover:bg-sky-surface-interactive transition-all duration-300 group border border-transparent hover:border-sky-border">
               <span className="font-semibold tracking-wide">{t('layout.toggle_theme', 'Toggle Theme')}</span>
-              <div className="bg-sky-surface-elevated p-1.5 rounded-lg group-hover:shadow-sm transition-all">
+              <div className="bg-sky-surface-interactive p-1.5 rounded-lg group-hover:shadow-sm transition-all">
                 <Sun className="h-4 w-4 block dark:hidden text-amber-500" />
                 <Moon className="h-4 w-4 hidden dark:block text-sky-primary" />
               </div>
            </button>
         </div>
+        <div className="p-4 pt-0 mt-auto border-t border-sky-border/50">
+           <div className="mt-3 flex flex-col gap-1 text-xs">
+             <span className="font-bold text-sky-text-primary text-[13px] flex items-center"><MapPin className="h-3.5 w-3.5 mr-1 text-sky-primary"/> {activeCity.charAt(0).toUpperCase() + activeCity.slice(1)}</span>
+             <span className="text-sky-text-secondary flex items-center mt-1">{currentTemp}° · {currentCond}</span>
+             <span className={cn(
+               "mt-2 text-[10px] uppercase font-bold tracking-wider",
+               isStale ? "text-amber-500" : isConnected ? "text-emerald-500" : "text-sky-text-muted"
+             )}>
+               ● {isStale ? "Stale Data" : isConnected ? "Live" : "Connecting..."}
+             </span>
+           </div>
+        </div>
       </aside>
 
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-linear-to-br from-sky-background to-sky-surface-elevated/30">
-        <header className="h-20 glass-panel border-b-0 border-b-(--border-glass) flex items-center justify-between px-4 lg:px-10 z-10 shrink-0 sticky top-0">
+      <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-sky-background">
+        <header className="h-14 bg-sky-header border-b border-sky-border flex items-center justify-between px-4 lg:px-6 z-10 shrink-0 sticky top-0 shadow-sm">
           <div className="flex items-center lg:hidden">
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
@@ -173,17 +259,28 @@ export function AppLayout() {
             <span className="text-lg font-bold tracking-tight">{t('layout.skycast', 'SkyCast')}</span>
           </div>
 
-          <div className="hidden lg:flex flex-1 items-center gap-6">
+          <div className="hidden lg:flex flex-1 items-center gap-6 max-w-xl">
              <button 
                 onClick={() => setIsSearchOpen(true)}
-                className="group flex items-center gap-3 px-4 py-2.5 text-sm text-sky-text-secondary bg-sky-surface/50 hover:bg-sky-surface border border-sky-border hover:border-sky-primary/30 rounded-2xl transition-all shadow-sm hover:shadow-md w-80"
+                className="group flex items-center gap-2 px-3 py-1.5 text-[13px] text-sky-text-secondary bg-sky-surface-interactive hover:bg-sky-surface border border-sky-border hover:border-sky-primary/50 rounded-lg transition-all w-full shadow-sm"
              >
                 <Search className="h-4 w-4 text-sky-text-secondary group-hover:text-sky-primary transition-colors" />
                 <span className="font-medium">{t('layout.search_locations', 'Search locations...')}</span>
-                <kbd className="ml-auto pointer-events-none inline-flex h-6 select-none items-center gap-1 rounded-md border border-sky-border bg-sky-surface-elevated px-2 font-mono text-[10px] font-bold text-sky-text-secondary shadow-sm">
-                  <span className="text-xs">⌘</span>K
+                <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded bg-sky-surface-elevated px-1.5 font-mono text-[10px] font-bold text-sky-text-secondary border border-sky-border">
+                  ⌘ K
                 </kbd>
              </button>
+          </div>
+
+          <div className="hidden lg:flex flex-1 justify-center items-center gap-4 text-sm">
+             <span className="font-semibold text-sky-text-primary">{activeCity.charAt(0).toUpperCase() + activeCity.slice(1)}</span>
+             <span className="text-sky-text-muted text-xs">·</span>
+             <span className={cn(
+               "text-xs font-medium px-2 py-0.5 rounded-full",
+               isStale ? "bg-amber-500/10 text-amber-500" : isConnected ? "bg-emerald-500/10 text-emerald-500" : "bg-sky-surface-interactive text-sky-text-secondary"
+             )}>
+               {isStale ? "Using cached data" : isConnected ? "Live Connection" : "Connecting..."}
+             </span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -297,6 +394,29 @@ export function AppLayout() {
           <Outlet />
         </div>
         <BottomNav />
+        
+        {/* Real-time Alert Toast Notification */}
+        {activeAlert && (
+          <div className="fixed bottom-20 left-1/2 -translate-x-1/2 lg:bottom-10 lg:left-auto lg:right-10 lg:translate-x-0 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+            <div className={cn(
+              "flex flex-col gap-1 p-4 rounded-xl shadow-lg border-l-4 w-[320px]",
+              activeAlert.resolved ? "bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-300" :
+              activeAlert.tier === 'red' ? "bg-red-500/10 border-red-500 text-red-700 dark:text-red-300" :
+              activeAlert.tier === 'orange' ? "bg-orange-500/10 border-orange-500 text-orange-700 dark:text-orange-300" :
+              "bg-yellow-500/10 border-yellow-500 text-yellow-700 dark:text-yellow-300"
+            )}>
+              <div className="flex items-center justify-between">
+                <span className="font-bold uppercase tracking-wider text-xs flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4" />
+                  {activeAlert.resolved ? "Alert Resolved" : "New Weather Alert"}
+                </span>
+                <button onClick={() => setActiveAlert(null)} className="opacity-70 hover:opacity-100">✕</button>
+              </div>
+              <p className="font-semibold text-sm mt-1">{activeAlert.hazard}</p>
+              {activeAlert.description && <p className="text-xs opacity-90 line-clamp-2 mt-0.5">{activeAlert.description}</p>}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

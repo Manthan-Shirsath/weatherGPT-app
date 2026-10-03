@@ -15,8 +15,8 @@ export function CurrentRisk({ isLoading, current, alerts }: CurrentRiskProps) {
   if (isLoading) {
     return (
       <section className="space-y-5 h-full">
-        <h2 className="text-2xl font-bold text-sky-text-primary tracking-tight">{t('home.current_risk', 'Current Risk Level')}</h2>
-        <Skeleton className="h-[340px] w-full rounded-[2rem]" />
+        <h2 className="text-[18px] font-bold text-sky-text-primary tracking-tight">{t('home.current_risk', 'Current Risk Level')}</h2>
+        <Skeleton className="h-85 w-full rounded-4xl" />
       </section>
     );
   }
@@ -42,96 +42,98 @@ export function CurrentRisk({ isLoading, current, alerts }: CurrentRiskProps) {
   const visibilityVal = current?.visibility ?? 10000;
 
   return (
-    <section className="space-y-5 h-full flex flex-col">
-      <h2 className="text-2xl font-bold text-sky-text-primary tracking-tight">{t('home.risk_analysis', 'Risk Analysis')}</h2>
+    <section className="h-full flex flex-col space-y-5">
+      <div className="flex items-center justify-between px-2">
+        <h2 className="text-[18px] font-bold text-sky-text-primary tracking-tight">{t('home.risk_analysis', 'Risk Analysis')}</h2>
+      </div>
       
-      <div className="glass-card rounded-[2rem] overflow-hidden flex-1 flex flex-col relative group">
+      <div className="bg-sky-surface border border-sky-border rounded-xl p-5 flex flex-col h-full hover:border-sky-primary/30 transition-all shadow-sm">
         
-        {/* Dynamic Glow Background */}
-        <div className={cn(
-          "absolute -top-32 -right-32 w-64 h-64 rounded-full blur-[80px] opacity-20 pointer-events-none transition-colors duration-1000", 
-          isLow ? "bg-emerald-500" : "bg-red-500"
-        )} />
-        <div className={cn(
-          "absolute -bottom-32 -left-32 w-64 h-64 rounded-full blur-[80px] opacity-20 pointer-events-none transition-colors duration-1000", 
-          isLow ? "bg-sky-primary" : "bg-orange-500"
-        )} />
-        
-        <div className="p-8 flex-1 flex flex-col z-10">
-          {/* Top badge area */}
-          <div className="flex items-center justify-between mb-8">
-            <div className={cn(
-              "flex items-center space-x-2 px-4 py-1.5 rounded-full font-bold text-xs uppercase tracking-widest shadow-sm",
-              isLow 
-                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" 
-                : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 animate-pulse-slow"
-            )}>
-              <RiskIcon className="h-4 w-4" />
-              <span>{riskLevel}</span>
-              <span className={cn("h-2 w-2 rounded-full ml-2 shadow-[0_0_8px_currentColor]", isLow ? "bg-emerald-500" : "bg-red-500")} />
-            </div>
-          </div>
-          
-          <div className="flex-1 flex flex-col justify-center">
-            <div className="flex items-center space-x-4 mb-4">
-              <div className={cn("p-3 rounded-2xl shadow-sm", isLow ? "bg-emerald-500/10" : "bg-red-500/10")}>
-                <span className="text-3xl filter drop-shadow-md">{isLow ? '☀️' : '⚠️'}</span>
-              </div>
-              <h3 className="text-xl font-bold text-sky-text-primary tracking-tight">
-                {isLow ? "Clear Conditions" : "Severe Weather Alert"}
+        {/* Top Header: Risk Level */}
+        <div className="flex items-start justify-between mb-6">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-3 w-3">
+                {!isLow && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-danger opacity-75"></span>}
+                <span className={cn("relative inline-flex rounded-full h-3 w-3 shadow-sm", isLow ? "bg-sky-success" : "bg-sky-danger")}></span>
+              </span>
+              <h3 className="text-lg font-bold text-sky-text-primary tracking-tight">
+                {isLow ? "Low Risk" : "Elevated Risk"}
               </h3>
             </div>
-            <p className="text-sm font-medium text-sky-text-secondary leading-relaxed max-w-[280px]">
+            <p className="text-sm font-medium text-sky-text-secondary leading-relaxed mt-1">
               {isLow 
-                ? "No severe weather expected today. Conditions are optimal for outdoor activities and travel."
-                : (alerts?.[0]?.event || "Severe weather conditions are expected in your area. Please exercise caution.")}
+                ? "Conditions are optimal for outdoor activities."
+                : (alerts?.[0]?.event || "Severe weather conditions expected.")}
             </p>
           </div>
-          
-          {/* Divider */}
-          <div className="h-px w-full bg-gradient-to-r from-transparent via-sky-border to-transparent my-6 opacity-60" />
-          
-          <div className="space-y-5">
-            {/* UV Index Indicator */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-sky-text-secondary font-semibold flex items-center gap-1.5">
-                  <Sun className="h-4 w-4" /> UV Index
-                </span>
-                <span className="font-bold text-sky-text-primary">
-                  {uvValue} <span className="text-sky-text-secondary font-medium ml-1">{getUILabel(uvValue)}</span>
-                </span>
-              </div>
-              <div className="h-1.5 w-full bg-sky-surface-elevated rounded-full overflow-hidden">
-                <div 
-                  className={cn("h-full rounded-full transition-all duration-1000 ease-out", 
-                    uvValue > 7 ? "bg-red-500" : uvValue > 4 ? "bg-orange-500" : "bg-emerald-500"
-                  )}
-                  style={{ width: `${getUVProgress(uvValue)}%` }}
-                />
-              </div>
+          <div className={cn("p-2.5 rounded-xl border shadow-sm", isLow ? "bg-sky-success/10 border-sky-success/20 text-sky-success" : "bg-sky-danger/10 border-sky-danger/20 text-sky-danger")}>
+            <RiskIcon className="h-5 w-5" />
+          </div>
+        </div>
+        
+        {/* Divider */}
+        <div className="h-px w-full bg-sky-border my-2" />
+        
+        {/* Risk Factors List */}
+        <div className="flex flex-col gap-5 mt-4">
+          {/* UV Index */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-sky-text-secondary font-bold uppercase tracking-wider flex items-center gap-1.5">
+                 UV Index
+              </span>
+              <span className="font-semibold text-sky-text-primary">
+                {uvValue} {getUILabel(uvValue)}
+              </span>
             </div>
-
-            {/* Visibility Indicator */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-sky-text-secondary font-semibold flex items-center gap-1.5">
-                  <Eye className="h-4 w-4" /> Visibility
-                </span>
-                <span className="font-bold text-sky-text-primary">
-                  {visibilityVal !== undefined ? `${(visibilityVal > 1000 ? visibilityVal/1000 : visibilityVal).toFixed(0)} ${visibilityVal > 1000 ? 'km' : 'm'}` : '10 km'}
-                </span>
-              </div>
-              <div className="h-1.5 w-full bg-sky-surface-elevated rounded-full overflow-hidden">
-                <div 
-                  className="h-full rounded-full transition-all duration-1000 ease-out bg-sky-primary"
-                  style={{ width: `${Math.min(100, (visibilityVal / 10000) * 100)}%` }}
-                />
-              </div>
+            <div className="h-1.5 w-full bg-sky-surface-interactive rounded-full overflow-hidden">
+              <div 
+                className={cn("h-full rounded-full transition-all duration-1000", 
+                  uvValue > 7 ? "bg-sky-danger" : uvValue > 4 ? "bg-sky-warning" : "bg-sky-success"
+                )}
+                style={{ width: `${getUVProgress(uvValue)}%` }}
+              />
             </div>
           </div>
 
+          {/* Visibility */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-sky-text-secondary font-bold uppercase tracking-wider flex items-center gap-1.5">
+                 Visibility
+              </span>
+              <span className="font-semibold text-sky-text-primary">
+                {visibilityVal !== undefined ? `${(visibilityVal > 1000 ? visibilityVal/1000 : visibilityVal).toFixed(0)} ${visibilityVal > 1000 ? 'km' : 'm'}` : '10 km'}
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-sky-surface-interactive rounded-full overflow-hidden">
+              <div 
+                className={cn("h-full rounded-full transition-all duration-1000", visibilityVal < 2000 ? "bg-sky-danger" : visibilityVal < 5000 ? "bg-sky-warning" : "bg-sky-success")}
+                style={{ width: `${Math.min(100, (visibilityVal / 10000) * 100)}%` }}
+              />
+            </div>
+          </div>
+          
+          {/* Wind */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-sky-text-secondary font-bold uppercase tracking-wider flex items-center gap-1.5">
+                 Wind
+              </span>
+              <span className="font-semibold text-sky-text-primary">
+                {current?.windSpeedKmh ? Math.round(current.windSpeedKmh) : 0} km/h
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-sky-surface-interactive rounded-full overflow-hidden">
+              <div 
+                className={cn("h-full rounded-full transition-all duration-1000", (current?.windSpeedKmh ?? 0) > 40 ? "bg-sky-danger" : (current?.windSpeedKmh ?? 0) > 20 ? "bg-sky-warning" : "bg-sky-success")}
+                style={{ width: `${Math.min(100, ((current?.windSpeedKmh ?? 0) / 60) * 100)}%` }}
+              />
+            </div>
+          </div>
         </div>
+
       </div>
     </section>
   );

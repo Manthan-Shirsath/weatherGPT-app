@@ -14,10 +14,10 @@ const badgeVariants = cva(
           "border-transparent bg-sky-surface-elevated text-sky-text-primary hover:bg-sky-surface-elevated/80",
         ai: "border-transparent bg-sky-ai/10 text-sky-ai hover:bg-sky-ai/20",
         destructive:
-          "border-transparent bg-red-100 text-red-700 hover:bg-red-100/80 dark:bg-red-900/30 dark:text-red-400",
+          "border-transparent bg-sky-danger text-white hover:bg-sky-danger/80",
         outline: "text-sky-text-primary border-sky-border",
-        success: "border-transparent bg-green-100 text-green-700 hover:bg-green-100/80 dark:bg-green-900/30 dark:text-green-400",
-        warning: "border-transparent bg-orange-100 text-orange-700 hover:bg-orange-100/80 dark:bg-orange-900/30 dark:text-orange-400",
+        success: "border-transparent bg-sky-success text-white hover:bg-sky-success/80",
+        warning: "border-transparent bg-sky-warning text-white hover:bg-sky-warning/80",
       },
     },
     defaultVariants: {

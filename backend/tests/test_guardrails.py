@@ -107,7 +107,7 @@ async def test_native_handoff_with_guardrails(agent):
     assert triage_agent.input_guardrails[0].get_name() == "safety_input_guardrail"
     
     # Assert it has handoffs
-    assert len(triage_agent.handoffs) == 3
+    assert len(triage_agent.handoffs) == 5
     
     # Assert specialists have output guardrail
     weather_agent = triage_agent.handoffs[0]

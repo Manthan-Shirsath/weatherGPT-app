@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-sky-primary text-white hover:bg-sky-primary/90 shadow-sm",
-        destructive: "bg-red-500 text-white hover:bg-red-500/90 shadow-sm",
+        destructive: "bg-sky-danger text-white hover:bg-sky-danger/90 shadow-sm",
         outline: "border border-sky-border bg-transparent hover:bg-sky-surface-elevated text-sky-text-primary",
         secondary: "bg-sky-surface-elevated text-sky-text-primary hover:bg-sky-surface-elevated/80",
         ghost: "hover:bg-sky-surface-elevated text-sky-text-primary",

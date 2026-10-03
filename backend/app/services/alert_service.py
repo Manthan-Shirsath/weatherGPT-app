@@ -125,10 +125,95 @@ class AlertDetectionService:
         city_name: str,
         weather_data: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Processes and caches Skycast risk alerts during collector cycles."""
+        """Processes and caches Skycast risk alerts during collector cycles, and persists state transitions."""
         lat = weather_data.get("latitude", 18.52)
         lon = weather_data.get("longitude", 73.85)
-        return await self.get_alerts_for_location(lat, lon, city_name, weather_data)
+        
+        result = await self.get_alerts_for_location(lat, lon, city_name, weather_data)
+        
+        # Persist to database and compute transitions
+        transitions = await self._persist_active_alerts(city_name, result.get("alerts", []))
+        result["transitions"] = transitions
+        
+        return result
+
+    async def _persist_active_alerts(self, city_name: str, alerts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        from backend.app.core.database import async_session_factory
+        from backend.app.models.core import ActiveAlert
+        from sqlalchemy import select
+        
+        clean_city = city_name.strip().lower()
+        transitions = []
+        
+        try:
+            async with async_session_factory() as session:
+                stmt = select(ActiveAlert).where(ActiveAlert.city == clean_city, ActiveAlert.is_active == True)
+                res = await session.execute(stmt)
+                existing_alerts = {a.hazard: a for a in res.scalars().all()}
+                
+                incoming_hazards = {}
+                for a in alerts:
+                    hazard = a.get("event") or a.get("hazardClassification", "unknown")
+                    incoming_hazards[hazard] = a
+                
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                
+                # 1. Resolve alerts that are no longer active
+                for h, ea in existing_alerts.items():
+                    if h not in incoming_hazards:
+                        ea.is_active = False
+                        ea.valid_until = now_utc
+                        transitions.append({
+                            "type": "alert.resolved",
+                            "city": city_name,
+                            "alert": {"hazard": h, "tier": ea.tier, "resolved_at": now_utc.isoformat()}
+                        })
+                
+                # 2. Add or update new alerts
+                for h, a in incoming_hazards.items():
+                    tier = a.get("severity", "green").lower()
+                    if h in existing_alerts:
+                        ea = existing_alerts[h]
+                        if ea.tier != tier:
+                            # State transition: old one inactive, new one active
+                            ea.is_active = False
+                            ea.valid_until = now_utc
+                            
+                            new_alert = ActiveAlert(
+                                city=clean_city,
+                                hazard=h,
+                                tier=tier,
+                                description=a.get("description", ""),
+                                source="skycast",
+                                is_active=True
+                            )
+                            session.add(new_alert)
+                            transitions.append({
+                                "type": "alert.updated",
+                                "city": city_name,
+                                "alert": {"hazard": h, "old_tier": ea.tier, "new_tier": tier, "description": new_alert.description}
+                            })
+                    else:
+                        new_alert = ActiveAlert(
+                            city=clean_city,
+                            hazard=h,
+                            tier=tier,
+                            description=a.get("description", ""),
+                            source="skycast",
+                            is_active=True
+                        )
+                        session.add(new_alert)
+                        transitions.append({
+                            "type": "alert.created",
+                            "city": city_name,
+                            "alert": {"hazard": h, "tier": tier, "description": new_alert.description}
+                        })
+                
+                await session.commit()
+                return transitions
+        except Exception as exc:
+            logger.error("Failed to persist alerts for %s: %s", city_name, exc)
+            return []
 
     async def get_alerts_for_city(self, city_name: str, weather: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Fetches alerts for a city by checking cache or resolving weather data."""

@@ -520,7 +520,7 @@ export default function MapPage() {
         return (
           <div className="flex flex-col gap-1.5">
             <span className="text-[10px] font-bold text-sky-text-secondary uppercase">Temperature (°C)</span>
-            <div className="flex w-full h-2 rounded bg-gradient-to-r from-cyan-600 via-emerald-600 to-red-600"></div>
+            <div className="flex w-full h-2 rounded bg-linear-to-r from-cyan-600 via-emerald-600 to-red-600"></div>
             <div className="flex justify-between text-[10px] text-sky-text-primary font-mono font-bold mt-0.5">
               <span>0°</span><span>20°</span><span>40°+</span>
             </div>
@@ -530,7 +530,7 @@ export default function MapPage() {
         return (
           <div className="flex flex-col gap-1.5">
             <span className="text-[10px] font-bold text-sky-text-secondary uppercase">Wind Speed (km/h)</span>
-            <div className="flex w-full h-2 rounded bg-gradient-to-r from-green-300 via-yellow-400 to-purple-600"></div>
+            <div className="flex w-full h-2 rounded bg-linear-to-r from-green-300 via-yellow-400 to-purple-600"></div>
             <div className="flex justify-between text-[10px] text-sky-text-primary font-mono font-bold mt-0.5">
               <span>0</span><span>20</span><span>100+</span>
             </div>
@@ -540,7 +540,7 @@ export default function MapPage() {
         return (
           <div className="flex flex-col gap-1.5">
             <span className="text-[10px] font-bold text-sky-text-secondary uppercase">Rain Chance (%)</span>
-            <div className="flex w-full h-2 rounded bg-gradient-to-r from-blue-100 to-blue-800"></div>
+            <div className="flex w-full h-2 rounded bg-linear-to-r from-blue-100 to-blue-800"></div>
             <div className="flex justify-between text-[10px] text-sky-text-primary font-mono font-bold mt-0.5">
               <span>0%</span><span>50%</span><span>100%</span>
             </div>
@@ -573,7 +573,7 @@ export default function MapPage() {
       <div className="absolute bottom-20 lg:bottom-auto lg:top-4 left-2 right-2 lg:left-4 lg:right-auto z-20 flex flex-col gap-2 lg:gap-3 pointer-events-none items-center lg:items-start">
         
         {/* Title & Stats */}
-        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl pointer-events-auto flex items-center gap-3 w-full max-w-[340px] lg:w-[320px]">
+        <div className="bg-sky-surface/95 backdrop-blur-xl px-3 py-2.5 rounded-xl border border-sky-border shadow-xl pointer-events-auto flex items-center gap-3 w-full max-w-85 lg:w-[320px]">
           <div className="bg-sky-primary text-white p-2.5 rounded-xl shadow-sm">
             <MapIcon className="h-5 w-5" />
           </div>
@@ -589,9 +589,9 @@ export default function MapPage() {
         </div>
 
         {/* Basemap & City Jump Controls */}
-        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl pointer-events-auto flex flex-col gap-2.5 w-full max-w-[340px] lg:w-[320px]">
+        <div className="bg-sky-surface/95 backdrop-blur-xl p-2 rounded-xl border border-sky-border shadow-xl pointer-events-auto flex flex-col gap-2 w-full max-w-85 lg:w-[320px]">
           <select
-            className="w-full bg-slate-50 dark:bg-slate-950 text-sky-text-primary font-medium text-xs rounded-xl px-3 py-2.5 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-primary/50 transition-shadow"
+            className="w-full bg-sky-background text-sky-text-primary font-medium text-xs rounded-xl px-3 py-2.5 border border-sky-border focus:outline-none focus:ring-2 focus:ring-sky-primary/50 transition-shadow"
             value={basemapTheme}
             onChange={(e) => setBasemapTheme(e.target.value as any)}
           >
@@ -604,7 +604,7 @@ export default function MapPage() {
           
           <div className="flex gap-2">
             <select 
-              className="flex-1 bg-slate-50 dark:bg-slate-950 text-sky-text-primary font-medium text-xs rounded-xl px-3 py-2.5 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-primary/50 transition-shadow"
+              className="flex-1 bg-sky-background text-sky-text-primary font-medium text-xs rounded-xl px-3 py-2.5 border border-sky-border focus:outline-none focus:ring-2 focus:ring-sky-primary/50 transition-shadow"
               onChange={(e) => {
                 const city = cities.find(c => c.name === e.target.value);
                 if (city) flyToCity(city);
@@ -619,7 +619,7 @@ export default function MapPage() {
             <Button 
               variant="outline" 
               size="icon" 
-              className="h-[38px] w-[38px] bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 shrink-0 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900" 
+              className="h-9.5 w-9.5 bg-sky-background border-sky-border shrink-0 rounded-xl hover:bg-sky-surface-elevated text-sky-text-primary" 
               title="Refresh Map Weather"
               onClick={() => { fetchCitiesData(); fetchRadarData(); }}
             >
@@ -633,41 +633,41 @@ export default function MapPage() {
       <div className="absolute top-4 right-2 lg:right-4 z-20 flex flex-col items-end gap-2 lg:gap-3 pointer-events-none">
         
         {/* Layer Selector */}
-        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl p-2 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl pointer-events-auto flex flex-col w-[140px] lg:w-[170px]">
-          <span className="text-[9px] lg:text-[10px] font-bold text-sky-text-secondary tracking-widest uppercase px-2 lg:px-3 py-1.5 mb-1 border-b border-slate-100 dark:border-slate-800/50">
+        <div className="bg-sky-surface/95 backdrop-blur-xl p-2 rounded-xl border border-sky-border shadow-xl pointer-events-auto flex flex-col w-35 lg:w-42.5">
+          <span className="text-[9px] lg:text-[10px] font-bold text-sky-text-secondary tracking-widest uppercase px-2 lg:px-3 py-1.5 mb-1 border-b border-sky-border/50">
             Layers
           </span>
           <div className="flex flex-col gap-0.5 mt-1">
-            <Button variant={activeLayer === 'temperature' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('temperature')} className="justify-start h-8 px-3 text-xs rounded-lg">
+            <Button variant={activeLayer === 'temperature' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('temperature')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
               <Thermometer className="h-3.5 w-3.5 mr-2" /> Temperature
             </Button>
-            <Button variant={activeLayer === 'radar' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('radar')} className="justify-start h-8 px-3 text-xs rounded-lg">
+            <Button variant={activeLayer === 'radar' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('radar')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
               <Radio className={cn("h-3.5 w-3.5 mr-2", activeLayer !== 'radar' && "text-sky-ai")} /> Doppler Radar
             </Button>
-            <Button variant={activeLayer === 'satellite' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('satellite')} className="justify-start h-8 px-3 text-xs rounded-lg">
+            <Button variant={activeLayer === 'satellite' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('satellite')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
               <Satellite className="h-3.5 w-3.5 mr-2" /> Satellite IR
             </Button>
-            <Button variant={activeLayer === 'wind' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('wind')} className="justify-start h-8 px-3 text-xs rounded-lg">
+            <Button variant={activeLayer === 'wind' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('wind')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
               <Wind className="h-3.5 w-3.5 mr-2" /> Wind
             </Button>
-            <Button variant={activeLayer === 'rain' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('rain')} className="justify-start h-8 px-3 text-xs rounded-lg">
+            <Button variant={activeLayer === 'rain' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('rain')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
               <CloudRain className="h-3.5 w-3.5 mr-2" /> Rain Chance
             </Button>
-            <Button variant={activeLayer === 'clouds' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('clouds')} className="justify-start h-8 px-3 text-xs rounded-lg">
+            <Button variant={activeLayer === 'clouds' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('clouds')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
               <Cloud className="h-3.5 w-3.5 mr-2" /> Clouds
             </Button>
-            <Button variant={activeLayer === 'pressure' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('pressure')} className="justify-start h-8 px-3 text-xs rounded-lg">
+            <Button variant={activeLayer === 'pressure' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveLayer('pressure')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary">
               <Gauge className="h-3.5 w-3.5 mr-2" /> Pressure
             </Button>
-            <div className="h-px bg-slate-200 dark:bg-slate-800 my-1 mx-2" />
-            <Button variant={activeLayer === 'alerts' ? 'destructive' : 'ghost'} size="sm" onClick={() => setActiveLayer('alerts')} className="justify-start h-8 px-3 text-xs rounded-lg hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40">
+            <div className="h-px bg-sky-border my-1 mx-2" />
+            <Button variant={activeLayer === 'alerts' ? 'destructive' : 'ghost'} size="sm" onClick={() => setActiveLayer('alerts')} className="justify-start h-8 px-3 text-xs rounded-lg text-sky-text-primary hover:text-sky-danger hover:bg-sky-danger/10">
               <AlertTriangle className="h-3.5 w-3.5 mr-2" /> Alerts
             </Button>
           </div>
         </div>
 
         {/* Dynamic Legend */}
-        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl pointer-events-auto w-[170px]">
+        <div className="bg-sky-surface/95 backdrop-blur-xl p-3.5 rounded-2xl border border-sky-border shadow-xl pointer-events-auto w-42.5">
           {renderLegend()}
         </div>
       </div>

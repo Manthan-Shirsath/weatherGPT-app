@@ -32,6 +32,12 @@ async def websocket_weather_endpoint(websocket: WebSocket):
                         "type": "subscription_confirmed",
                         "city": msg.get("city")
                     })
+                elif action == "unsubscribe" and msg.get("city"):
+                    ws_manager.unsubscribe(websocket, msg.get("city"))
+                    await websocket.send_json({
+                        "type": "unsubscription_confirmed",
+                        "city": msg.get("city")
+                    })
                 elif action == "ping":
                     await websocket.send_json({"type": "pong"})
             except Exception:

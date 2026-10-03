@@ -178,6 +178,30 @@ class SourceItem(BaseModel):
     provider: Optional[str] = "open_meteo"
 
 
+class UncertaintyInfo(BaseModel):
+    level: str = "high"  # "high" | "moderate" | "low"
+    explanation: str
+    source_disagreement: bool = False
+    disagreement_details: Optional[str] = None
+
+
+class RiskItem(BaseModel):
+    hazard: str
+    severity: str = "moderate"  # "low" | "moderate" | "severe" | "critical"
+    impact: Optional[str] = None
+    time_window: Optional[str] = None
+    advice: Optional[str] = None
+
+
+class RecommendationItem(BaseModel):
+    category: str = "general"
+    action: str
+    reason: str
+    suitability: Optional[str] = None  # "suitable" | "caution" | "not_suitable"
+    time_window: Optional[str] = None
+    source: Optional[str] = None
+
+
 # ==============================================================================
 # Final Agent Response (100% Backward Compatible + Rich Structure)
 # ==============================================================================
@@ -192,4 +216,12 @@ class AgentResponse(BaseModel):
     data_status: str = "fresh"  # "fresh" | "stale" | "degraded"
     conversation_context: Optional[Dict[str, Any]] = None
     is_fallback: bool = False
+    summary: Optional[str] = None
+    conditions: Optional[Dict[str, Any]] = None
+    forecast: Optional[Dict[str, Any]] = None
+    risks: Optional[List[RiskItem]] = None
+    recommendations: Optional[List[RecommendationItem]] = None
+    uncertainty: Optional[UncertaintyInfo] = None
+    freshness: Optional[Dict[str, Any]] = None
+    follow_up_questions: Optional[List[str]] = None
 

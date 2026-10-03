@@ -10,6 +10,7 @@ from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.app.services.agent import weather_agent, AgentResponse, CardItem, SourceItem
+from backend.app.services.agent.schemas import UncertaintyInfo, RiskItem, RecommendationItem
 from backend.app.models.chat import UserRole
 
 router = APIRouter(prefix="/api", tags=["Chat"])
@@ -37,6 +38,14 @@ class ChatResponse(BaseModel):
     sources: List[SourceItem] = Field(default_factory=list)
     data_status: str = "fresh"
     conversation_context: Optional[Dict[str, Any]] = None
+    summary: Optional[str] = None
+    conditions: Optional[Dict[str, Any]] = None
+    forecast: Optional[Dict[str, Any]] = None
+    risks: Optional[List[RiskItem]] = None
+    recommendations: Optional[List[RecommendationItem]] = None
+    uncertainty: Optional[UncertaintyInfo] = None
+    freshness: Optional[Dict[str, Any]] = None
+    follow_up_questions: Optional[List[str]] = None
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -69,7 +78,15 @@ async def chat_weather(req: ChatRequest = Body(...)):
             cards=agent_res.cards,
             sources=agent_res.sources,
             data_status=agent_res.data_status,
-            conversation_context=agent_res.conversation_context
+            conversation_context=agent_res.conversation_context,
+            summary=agent_res.summary,
+            conditions=agent_res.conditions,
+            forecast=agent_res.forecast,
+            risks=agent_res.risks,
+            recommendations=agent_res.recommendations,
+            uncertainty=agent_res.uncertainty,
+            freshness=agent_res.freshness,
+            follow_up_questions=agent_res.follow_up_questions
         )
 
     except Exception as exc:
