@@ -1,140 +1,95 @@
-# SkyCast FastAPI Backend
+# SkyCast FastAPI Backend Engine
 
-Lightweight Python FastAPI backend that interfaces with Open-Meteo API and IMD/WIS2.0 providers to supply real-time weather forecasts to the SkyCast React frontend.
+High-performance asynchronous meteorological backend powered by **FastAPI**, **Redis 7**, **PostgreSQL 16**, **SQLAlchemy 2.0 (asyncpg)**, and the **WeatherGPT Multi-Agent Intelligence Suite**.
 
-## Features
+---
 
-- **FastAPI & Uvicorn**: High performance async backend with automatic Swagger UI (`/docs`).
-- **Multi-Provider Architecture**: Pluggable weather providers (Open-Meteo, IMD/WIS2.0, extensible to GFS, WRF, ECMWF).
-- **Open-Meteo Geocoding & Weather Forecast**: Fetches accurate coordinates and live weather metrics.
-- **IMD/WIS2.0 Integration**: Adapter for India Meteorological Department data via WIS2.0 MQTT (mock fixture + live-mode capable).
-- **Data Provenance Tracking**: `source_provenance` field indicates data origin ("open-meteo" | "imd-wis2" | "blended").
-- **Pydantic Validation**: Strong typing and serialization for all endpoints.
-- **WMO Weather Code Decoding**: Maps standard WMO weather codes to human-readable strings and UI icons.
-- **CORS Configured**: Ready for local and production frontend integration.
-- **Error Handling**: 404 for unknown locations, 502 for upstream API failures.
+## 🌟 Key Backend Capabilities
 
-## Quick Start
+- ⚡ **High-Performance FastAPI**: Asynchronous REST endpoints with GZip compression and auto-generated Swagger UI (`/docs`).
+- 🧠 **WeatherGPT Multi-Agent Suite**: Specialized agents for **General Weather**, **Agriculture**, **Disaster Risk**, **Urban & Commute**, **Climate Research**, **Aviation (METAR/TAF)**, and **Marine (Ocean Swell)**.
+- ⚠️ **Official IMD CAP Alert Engine**: Real-time RSS/XML ingestion from WMO Alert Hub with hierarchical geo-matching (`city` > `district` > `state` > `regional`).
+- 🔬 **Methodology-Diverse Forecast Ingestion**: Automated ingestion and storage of physics NWP models (ECMWF IFS, NOAA GFS, DWD ICON) and AI/ML models (ECMWF AIFS, Google WeatherNext 2).
+- 🗄️ **Dual-Tier Resilient Caching**: Redis 7 cache with transparent in-memory fallbacks when Redis or PostgreSQL are unavailable, ensuring zero downtime.
+- 📡 **WebSockets & Standing Monitors**: Persistent real-time alert evaluation and live browser push updates via `/ws`.
+- 🔄 **Continuous Background Daemon Workers**:
+  - `collector_worker`: Periodically fetches, normalizes, and snapshots weather observations.
+  - `forecast_ingestion_worker`: Background multi-model forecast synchronization.
+- 🧪 **290+ Automated Tests**: Thorough test suite covering AST safety guardrails, temporal context resolution, provider fallbacks, and deterministic risk logic.
+
+---
+
+## 🏗️ Directory Structure
+
+```text
+backend/
+├── alembic/                  # Database migration scripts
+├── app/
+│   ├── core/                 # Config, Cache (Redis), Database (Postgres), WebSockets
+│   ├── models/               # SQLAlchemy ORM models & Pydantic canonical schemas
+│   ├── routes/               # API routers (/weather, /chat, /alerts, /climate, /forecast-intelligence, etc.)
+│   ├── services/             # WeatherHub, WeatherGPT Agent, IMD CAP Engine, Ingestion
+│   └── utils/                # Helper utilities & math modules
+├── tests/                    # 290+ pytest unit and integration test suite
+├── Dockerfile                # Production multi-stage container
+├── main.py                   # Lifespan startup, background worker initiation, CORS, GZip
+└── requirements.txt          # Python dependencies
+```
+
+---
+
+## 🚀 Quick Start
 
 ### 1. Install Dependencies
 ```bash
 pip install -r backend/requirements.txt
 ```
 
-### 2. Run the FastAPI Server
+### 2. Configure Environment Variables
+Copy template:
+```bash
+cp .env.example .env
+```
+Key variables:
+- `GROQ_API_KEY`: For LLM-powered WeatherGPT inference.
+- `DATABASE_URL`: PostgreSQL connection (`postgresql+asyncpg://user:pass@localhost:5432/skycast`).
+- `REDIS_URL`: Redis connection (`redis://localhost:6379/0`).
+*(Note: If Postgres or Redis are not running locally, SkyCast automatically falls back to in-memory mode without crashing).*
+
+### 3. Run the Backend Server
 ```bash
 python backend/main.py
 ```
-or via uvicorn directly:
+Or via uvicorn:
 ```bash
 uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
 ```
+- **API Base**: `http://localhost:8000`
+- **Interactive OpenAPI Docs**: `http://localhost:8000/docs`
 
-## Weather Data Providers
+---
 
-### Current State (as of SIH PS #26068 alignment)
+## 📡 Core API Endpoints
 
-**Production-Ready:**
-- **Open-Meteo** (default): Free, no-auth global weather data. Currently the primary live provider.
+| Endpoint | Method | Description |
+| :--- | :---: | :--- |
+| `/api/weather` | `GET` | Current conditions, hourly, 7-day forecast, air quality, solar radiation. |
+| `/api/chat` | `POST` | WeatherGPT conversational query with multi-agent routing and decision cards. |
+| `/api/alerts` | `GET` | Active IMD CAP official warnings and SkyCast derived risk assessments. |
+| `/api/forecast-intelligence/compare` | `GET` | Side-by-side comparison of NWP physics models vs AI/ML models. |
+| `/api/climate/summary` | `GET` | Historical ERA5 reanalysis weather data and climate normal comparisons. |
+| `/api/agriculture/advice` | `GET` | Crop stress analytics, soil moisture, and pesticide spray windows. |
+| `/api/trends` | `GET` | Historical observation trends and statistical summaries. |
+| `/api/map/weather` | `GET` | Regional GIS weather data layer for MapLibre visualization. |
+| `/ws` | `WS` | Real-time WebSocket connection for live monitors and alert events. |
+| `/health` | `GET` | System health check (Redis, DB, providers). |
 
-**Demonstration/Mock Mode:**
-- **IMD/WIS2.0**: Reads from fixture file (`backend/app/services/providers/fixtures/wis2_sample_bulletin.json`). MQTT live-mode is architecturally supported but requires real WIS2.0 broker credentials.
+---
 
-### Data Provenance
+## 🧪 Testing
 
-Every weather response includes a `sourceProvenance` field:
-```json
-{
-  "sourceProvenance": "open-meteo",  // or "imd-wis2", or "blended"
-  "provider": "open_meteo",
-  "nwpSource": "gfs_seamless",
-  "nwpModel": "NOAA GFS (Global Forecast System)",
-  "fetchedAt": "2026-08-29T12:30:45Z"
-}
+Run the automated backend test suite:
+```bash
+pytest backend/tests/ -v
 ```
-
-This directly addresses SIH PS #26068's requirement: **"Why this forecast?"** — evaluators and users can trace any forecast number back to its upstream source.
-
-### Switching Providers
-
-#### Enable IMD/WIS2.0 Live Mode (for future integration with real IMD endpoint)
-
-1. **Obtain WIS2.0 credentials** from IMD (wis2.imdpune.gov.in or designated endpoint)
-2. **Set environment variables** in `backend/.env`:
-   ```
-   IMD_LIVE_MODE=true
-   WIS2_BROKER_URL=wis2.imdpune.gov.in:1883
-   WIS2_USERNAME=your_imd_username
-   WIS2_PASSWORD=your_imd_password
-   ```
-3. **Restart backend**. The IMD provider will automatically connect via MQTT.
-
-#### Development Mode (Fixture)
-
-By default, IMD provider reads from a static fixture:
-```
-backend/app/services/providers/fixtures/wis2_sample_bulletin.json
-```
-
-This fixture mimics real WIS2.0 GRIB2-derived data structure and includes:
-- Current conditions for Pune, Mumbai, New Delhi
-- 24-hour hourly forecast (temperature, precipitation, wind)
-- 7-day daily forecast
-- IMD-tier hazard classifications (Yellow, Orange, Red alerts)
-
-To use: simply leave `IMD_LIVE_MODE=false` (default).
-
-### Adding Future Providers (GFS, WRF, ECMWF)
-
-1. **Create new provider** in `backend/app/services/providers/{provider_name}.py`
-2. **Inherit from** `BaseWeatherProvider` (see `base.py`)
-3. **Implement required methods**: `geocode_city()`, `fetch_forecast()`, `fetch_batch_forecast()`
-4. **Register in weather_hub.py**: Update provider selection logic
-5. **Tests**: Add test file in `backend/tests/` following existing pattern
-
-## API Specification
-
-### `GET /api/weather?city={cityName}`
-
-#### Query Parameters:
-- `city` (string, required): Name of the city (e.g. `Pune`, `Mumbai`, `London`, `Tokyo`, `New York`)
-
-#### Example Response:
-```json
-{
-  "city": "Pune",
-  "region": "Maharashtra",
-  "displayLocation": "Pune, Maharashtra",
-  "date": "TUESDAY, AUGUST 25",
-  "tempC": 27,
-  "condition": "Cloudy",
-  "feelsLikeC": 28,
-  "highC": 28,
-  "lowC": 23,
-  "humidity": 71,
-  "windSpeedKmh": 19,
-  "insight": {
-    "title": "Passing clouds & scattered rain",
-    "description": "Cloud cover will keep conditions pleasant with a slight chance of showers.",
-    "rainChance": 51
-  },
-  "hourly": [
-    { "time": "Now", "tempC": 27, "icon": "cloudy", "active": true },
-    { "time": "17:00", "tempC": 26, "icon": "cloudy", "active": false },
-    { "time": "18:00", "tempC": 25, "icon": "cloudy", "active": false },
-    { "time": "19:00", "tempC": 24, "icon": "cloudy", "active": false },
-    { "time": "20:00", "tempC": 23, "icon": "cloudy", "active": false },
-    { "time": "21:00", "tempC": 24, "icon": "cloudy", "active": false },
-    { "time": "22:00", "tempC": 23, "icon": "cloudy", "active": false }
-  ],
-  "daily": [
-    { "day": "Today", "condition": "Light Drizzle", "highC": 28, "lowC": 23, "rainChance": 51, "icon": "rain" },
-    { "day": "Wed", "condition": "Light Drizzle", "highC": 28, "lowC": 23, "rainChance": 61, "icon": "rain" },
-    { "day": "Thu", "condition": "Moderate Drizzle", "highC": 28, "lowC": 23, "rainChance": 92, "icon": "rain" },
-    { "day": "Fri", "condition": "Light Drizzle", "highC": 27, "lowC": 23, "rainChance": 100, "icon": "rain" },
-    { "day": "Sat", "condition": "Light Drizzle", "highC": 27, "lowC": 23, "rainChance": 91, "icon": "rain" },
-    { "day": "Sun", "condition": "Light Drizzle", "highC": 27, "lowC": 23, "rainChance": 67, "icon": "rain" },
-    { "day": "Mon", "condition": "Light Drizzle", "highC": 28, "lowC": 22, "rainChance": 51, "icon": "rain" }
-  ]
-}
-```
+All tests use SQLite in-memory databases and mocked external providers to ensure reproducible, hermetic test runs.
