@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel
 
 class AgentMode(str, Enum):

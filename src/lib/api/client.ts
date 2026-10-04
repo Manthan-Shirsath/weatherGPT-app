@@ -51,6 +51,8 @@ export interface WeatherMonitorItem {
   user_id?: string;
   session_id?: string;
   location: string;
+  latitude?: number;
+  longitude?: number;
   rule_type: string;
   metric: string;
   operator: string;
@@ -73,6 +75,8 @@ export interface TriggeredAlertItem {
   user_id?: string;
   session_id?: string;
   location: string;
+  latitude?: number;
+  longitude?: number;
   rule_type: string;
   severity: string;
   condition_desc: string;

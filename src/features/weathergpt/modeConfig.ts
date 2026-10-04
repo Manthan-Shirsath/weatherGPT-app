@@ -12,7 +12,7 @@
 
 import type { TFunction } from 'i18next';
 import {
-  Sparkles, CloudRain, Sprout, ShieldAlert, Plane, Ship,
+  Sparkles, CloudRain, Sprout, ShieldAlert, Plane, Ship, Building2,
   type LucideIcon
 } from 'lucide-react';
 
@@ -226,6 +226,30 @@ export const getModeConfigs = (t: TFunction): ModeConfig[] => [
       { label: t('weathergpt.modes.climate.sq1_label', 'Historical Baseline'), query: t('weathergpt.modes.climate.sq1_query', { city, defaultValue: `How do current temperatures in ${city} compare to the 30-year historical baseline?` }), icon: '📈' },
       { label: t('weathergpt.modes.climate.sq2_label', 'Precipitation Trends'), query: t('weathergpt.modes.climate.sq2_query', { city, defaultValue: `Analyze historical monsoon and rainfall variability for ${city}` }), icon: '🌧️' },
       { label: t('weathergpt.modes.climate.sq3_label', 'Extreme Heat Frequency'), query: t('weathergpt.modes.climate.sq3_query', { city, defaultValue: `What is the historical frequency of extreme heat events in ${city}?` }), icon: '🌡️' },
+    ],
+    status: 'active',
+  },
+
+  // ── Urban & Commute ──────────────────────────────────────────────────────
+  {
+    id: 'urban',
+    label: t('weathergpt.modes.urban.label', 'Urban & Commute'),
+    description: t('weathergpt.modes.urban.desc', 'Commute impacts, waterlogging risks, rain disruption & city planning'),
+    icon: Building2,
+    accentColor: 'orange-500',
+    badgeColor: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
+    headerAccentClass: 'mode-accent-urban',
+    placeholder: (city) => t('weathergpt.modes.urban.placeholder', { city, defaultValue: `Ask about commute weather, rain delays, or waterlogging risks in ${city}...` }),
+    quickContextChips: [
+      { label: t('weathergpt.modes.urban.chip1_label', '🚗 Commute Disruption'), attach: t('weathergpt.modes.urban.chip1_attach', 'commute impact and traffic delays') },
+      { label: t('weathergpt.modes.urban.chip2_label', '🌊 Waterlogging Risk'), attach: t('weathergpt.modes.urban.chip2_attach', 'urban waterlogging and drain overflow risk') },
+      { label: t('weathergpt.modes.urban.chip3_label', '🏗️ Construction Safety'), attach: t('weathergpt.modes.urban.chip3_attach', 'outdoor work and construction safety') },
+      { label: t('weathergpt.modes.urban.chip4_label', '🚇 Public Transit'), attach: t('weathergpt.modes.urban.chip4_attach', 'public transport weather disruption') },
+    ],
+    suggestedQuestions: (city) => [
+      { label: t('weathergpt.modes.urban.sq1_label', 'Commute Outlook'), query: t('weathergpt.modes.urban.sq1_query', { city, defaultValue: `Will rain disrupt evening rush hour traffic in ${city}?` }), icon: '🚗' },
+      { label: t('weathergpt.modes.urban.sq2_label', 'Waterlogging'), query: t('weathergpt.modes.urban.sq2_query', { city, defaultValue: `Is there any risk of waterlogging or localized urban flooding in ${city}?` }), icon: '🌊' },
+      { label: t('weathergpt.modes.urban.sq3_label', 'Outdoor Work'), query: t('weathergpt.modes.urban.sq3_query', { city, defaultValue: `Is it safe for outdoor construction work tomorrow in ${city}?` }), icon: '🏗️' },
     ],
     status: 'active',
   },

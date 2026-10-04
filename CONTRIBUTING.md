@@ -7,98 +7,101 @@ Thank you for your interest in contributing to **SkyCast**! Whether you are fixi
 ## 📋 Table of Contents
 
 1. [Code of Conduct](#code-of-conduct)
-2. [Getting Started](#getting-started)
-3. [Development Workflow](#development-workflow)
+2. [Golden Repository Rules](#golden-repository-rules)
+3. [Getting Started & Development Workflow](#getting-started--development-workflow)
 4. [Project Structure](#project-structure)
-5. [Backend Development](#backend-development)
-6. [Frontend Development](#frontend-development)
-7. [Submitting a Pull Request](#submitting-a-pull-request)
-8. [Reporting Issues](#reporting-issues)
+5. [Testing & Quality Verification](#testing--quality-verification)
+6. [Submitting a Pull Request](#submitting-a-pull-request)
+7. [Reporting Issues](#reporting-issues)
 
 ---
 
 ## 🤝 Code of Conduct
 
-Please be respectful, collaborative, and constructive when communicating and reviewing code across discussions, issues, and pull requests.
+Please be respectful, collaborative, and constructive when communicating across issues, discussions, and pull requests.
 
 ---
 
-## 🚀 Getting Started
+## 🛡️ Golden Repository Rules
 
-1. **Fork the repository** on GitHub.
-2. **Clone your fork locally**:
-   ```bash
-   git clone https://github.com/<your-username>/skycast-weather-app.git
-   cd skycast-weather-app
-   ```
-3. **Set up upstream remote**:
-   ```bash
-   git remote add upstream https://github.com/Manthan-Shirsath/skycast-weather-app.git
-   ```
+All contributors (and AI assistants) must strictly adhere to these rules:
+
+1. **Zero Secrets in Git**: Never hardcode or stage API keys (`GROQ_API_KEY`, `VITE_MAPTILER_KEY`), `.env` files, or database credentials. Always update `.env.example` with sanitized placeholders.
+2. **No Root-Level Scratch Files**: Do not commit one-off test scripts (`test_*.py` in root), LLM token dumps (`chat_output*.json`), or scratch files. Use the gitignored `scratch/` directory for local experiments.
+3. **Architecture Consistency**: SkyCast is built on **React 19 + TypeScript + Vite** (frontend) and **FastAPI + PostgreSQL + Redis** (backend). Do not introduce contradictory serverless/framework specs unless an agreed RFC is approved.
+4. **Mandatory Documentation Sync**: Whenever you add, rename, or update an API route, agent persona, or UI widget, update the corresponding documentation in `README.md` and `docs/` in the same PR.
+5. **Clean Code & Passing Tests**: Before submitting, ensure `oxlint` passes with zero errors and backend `pytest` tests pass.
 
 ---
 
-## 🛠️ Development Workflow
+## 🚀 Getting Started & Development Workflow
 
 ### Prerequisites
 - **Node.js** (v18 or newer)
-- **Python** (v3.10 or newer)
-- *(Optional)* **PostgreSQL** & **Redis** (the app includes in-memory / mock fallbacks for quick testing)
+- **Python** (v3.12 recommended, v3.10+ supported)
+- *(Optional)* **Docker & Docker Compose** (for zero-install full-stack run)
 
-### Setup Environment
-1. **Frontend dependencies**:
+### Local Setup
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/Manthan-Shirsath/skycast-weather-app.git
+   cd skycast-weather-app
+   ```
+2. **Install Frontend Dependencies**:
    ```bash
    npm install
    ```
-2. **Backend dependencies**:
+3. **Install Backend Dependencies**:
    ```bash
    pip install -r backend/requirements.txt
    ```
-3. **Configure Environment Variables**:
+4. **Configure Environment**:
    ```bash
-   cp backend/.env.example backend/.env
+   cp .env.example .env
    ```
-   Open `backend/.env` and add your Gemini API key (from [Google AI Studio](https://aistudio.google.com/)).
+   Add your `GROQ_API_KEY` (for WeatherGPT) and optional keys.
 
 ### Running the App
-Run both frontend and backend concurrently with a single command:
+Run both frontend and backend concurrently:
 ```bash
 npm run dev
 ```
 - **React Frontend**: `http://localhost:5173`
 - **FastAPI Backend**: `http://localhost:8000`
-- **FastAPI Swagger Docs**: `http://localhost:8000/docs`
+- **FastAPI Interactive Docs**: `http://localhost:8000/docs`
 
 ---
 
 ## 🏗️ Project Structure
 
-```
+```text
 skycast-weather-app/
 ├── backend/
 │   ├── alembic/              # Database schema migrations
 │   ├── app/
-│   │   ├── core/             # Config, Cache (Redis), DB connection, WebSockets
-│   │   ├── models/           # SQLAlchemy & Pydantic domain models
-│   │   ├── routes/           # FastAPI routers (weather, map, chat, alerts, trends, etc.)
-│   │   └── services/         # WeatherHub, WeatherGPT Agent, History, Providers
-│   ├── main.py               # FastAPI entry point
-│   ├── requirements.txt      # Python dependencies
-│   └── .env.example          # Environment variables template
+│   │   ├── core/             # Cache (Redis), DB connection, WebSockets, Config
+│   │   ├── models/           # SQLAlchemy schemas & Pydantic domain models
+│   │   ├── routes/           # FastAPI routers (weather, map, chat, alerts, climate, etc.)
+│   │   └── services/         # WeatherHub, Agent Registry, IMD Alert Engine, Ingestion
+│   ├── tests/                # Automated pytest suite (290+ tests)
+│   ├── main.py               # FastAPI entrypoint & lifecycle
+│   └── requirements.txt      # Python dependencies
 ├── src/
-│   ├── components/           # Reusable React UI components
-│   ├── pages/                # Main application views (Weather, Radar, WeatherGPT, etc.)
-│   ├── services/             # Frontend API clients & WebSocket managers
-│   ├── App.jsx               # Main React Application
-│   └── main.jsx              # React DOM entry point
-├── package.json
-├── vite.config.js
-└── README.md
+│   ├── app/                  # Router (router.tsx), Layout (layout.tsx), Providers
+│   ├── components/           # Reusable UI widgets & weather visual cards (DecisionHero, etc.)
+│   ├── features/             # Feature-sliced modules (dashboard, weathergpt, map, alerts, climate)
+│   ├── lib/                  # Utilities, API client, canonical types
+│   ├── locales/              # i18n translation strings
+│   └── main.tsx              # React DOM entrypoint
+├── docs/                     # Architectural specifications & system design
+├── docker-compose.yml        # Multi-container orchestration
+├── AGENTS.md                 # Agent & repository engineering standards
+└── package.json              # Frontend package configuration
 ```
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing & Quality Verification
 
 ### Backend Tests
 Run the test suite using `pytest`:
@@ -124,18 +127,11 @@ npm run lint
    ```bash
    git commit -m "feat(agent): add multi-city comparative weather tool"
    ```
-3. **Push to your fork**:
+3. **Check Quality Gates**:
+   - `npm run lint` passes without errors.
+   - `pytest` passes without regressions.
+   - Documentation is updated.
+4. **Push and Open PR**:
    ```bash
    git push origin feature/amazing-new-feature
    ```
-4. **Open a Pull Request** against the `main` branch with a clear description of the problem solved, changes made, and screenshots/recordings if UI was changed.
-
----
-
-## 🐛 Reporting Issues
-
-If you find a bug or have a feature suggestion, please open an issue in the repository with:
-- A clear, descriptive title.
-- Steps to reproduce the bug.
-- Expected vs. actual behavior.
-- Environment details (OS, Python version, Browser).

@@ -16,6 +16,7 @@ try:
     import fastapi
 except ImportError:
     import subprocess
+    import shutil
     candidate_venvs = [
         os.path.join(PROJECT_ROOT, ".venv", "Scripts", "python.exe"),
         os.path.join(BASE_DIR, ".venv", "Scripts", "python.exe"),
@@ -26,6 +27,9 @@ except ImportError:
         os.path.join(PROJECT_ROOT, "venv", "bin", "python"),
         os.path.join(BASE_DIR, "venv", "bin", "python"),
     ]
+    py_launcher = shutil.which("py")
+    if py_launcher:
+        candidate_venvs.append(py_launcher)
     for venv_py in candidate_venvs:
         if os.path.isfile(venv_py) and os.path.abspath(sys.executable).lower() != os.path.abspath(venv_py).lower():
             sys.exit(subprocess.call([venv_py] + sys.argv))

@@ -762,7 +762,7 @@ export default function ForecastIntelligencePage() {
                       placeholder="Preset name (e.g. My Top 3)..." 
                       value={newPresetName}
                       onChange={e => setNewPresetName(e.target.value)}
-                      className="text-xs bg-sky-background border border-sky-border rounded px-2 py-1 flex-1 text-sky-text-primary focus:outline-none focus:ring-1 focus:ring-sky-primary focus:border-transparent"
+                      className="text-xs bg-sky-background border border-sky-border rounded px-2 py-1 flex-1 text-sky-text-primary focus:outline-none focus:ring-1 focus:ring-sky-primary"
                     />
                     <Button size="sm" className="h-7 text-xs px-2.5 bg-sky-primary text-white" onClick={handleSaveCustomPreset}>
                       Save

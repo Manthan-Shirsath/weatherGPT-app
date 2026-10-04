@@ -102,6 +102,11 @@ lint_output.txt
 slice_collage.py
 slice_fixed.py
 backend/test_*.py
+/test_*.py
+chat_output*.json
+llm_diagnosis*.md
 supabase/
+archive/
+
 
 

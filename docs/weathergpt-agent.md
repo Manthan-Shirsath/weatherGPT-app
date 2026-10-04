@@ -163,8 +163,8 @@ WeatherGPT provides direct, domain-tailored agent modes selectable by users or A
 | **`disaster`** | Severe convective storm tracking, heatwaves, extreme rain, flood risk, official warnings. | `get_weather_risk`, `get_weather_alerts`, `get_current_weather`, `get_forecast` | Distinguishes between IMD official warnings (via CAP feed) and SkyCast algorithmic risk scores. |
 | **`urban`** | City commute disruption, rain impact, heat stress, outdoor work safety. | `get_current_weather`, `get_forecast`, `get_weather_risk`, `get_weather_alerts` | Grounded exclusively on measured weather; marks traffic/AQI explicitly as unavailable when unmeasured. |
 | **`research`** | Historical weather archives, climate baseline comparisons, temperature/rainfall anomalies. | `get_historical_weather_summary`, `get_historical_weather`, `get_weather_trends`, `get_current_weather` | Connects directly to Open-Meteo Historical Archive API for statistical aggregation without hardcoded values. |
-| **`aviation`** | METAR/TAF briefings, crosswind calculation, flight level turbulence. | Coming soon disclaimer | Refuses to fabricate aviation telemetry until verified sensors are connected. |
-| **`marine`** | Wave height, sea swell, tidal currents, offshore maritime safety. | Coming soon disclaimer | Refuses to fabricate marine oceanography until buoy streams are active. |
+| **`aviation`** | METAR/TAF briefings, cloud ceiling, flight category, visibility, crosswind components. | `get_aviation_reports`, `get_current_weather`, `get_forecast`, `get_weather_risk` | Fetches live METAR/TAF from `aviationweather.gov`; strictly prohibits fabricating airport codes or ceiling heights. |
+| **`marine`** | Wave height, ocean swell, wave period, sea temperature, coastal safety. | `get_marine_forecast`, `get_current_weather`, `get_forecast`, `get_weather_risk` | Fetches real-time maritime wave & swell data via Open-Meteo Marine API; refuses to fabricate sea states. |
 
 ---
 

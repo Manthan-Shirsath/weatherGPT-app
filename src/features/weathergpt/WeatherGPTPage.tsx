@@ -4,11 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { 
   Send, Sparkles, Bot, User, Loader2, AlertTriangle, CloudRain, MapPin, 
   Droplets, Thermometer, Wind, Clock, ArrowRight, CheckCircle2, XCircle, 
-  Bell, BellOff, RefreshCw, ChevronRight, ExternalLink, Layers, Database,
-  LineChart, Bookmark, BookmarkCheck, RotateCcw, Sprout, ShieldAlert,
+  Bell, BellOff, RefreshCw, Database,
+  LineChart, Bookmark, BookmarkCheck, RotateCcw,
   Mic, MicOff, Edit2, Check, Copy, ChevronDown, Search, ArrowUpRight,
-  Plane, Ship, Zap, Gauge, Sun, CloudFog, Info, ShieldCheck, Activity,
-  Compass, Radio, Volume2, VolumeX, Globe
+  Gauge, Activity, Radio, Volume2, VolumeX
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -27,7 +26,6 @@ import { AlertTimeline } from '@/components/weather/AlertTimeline';
 import { ModeSelector } from './ModeSelector';
 import {
   getModeConfig, getContextChips, getSuggestedQuestions, getPlaceholder,
-  getSelectableModes,
 } from './modeConfig';
 
 // --- Types ---
@@ -287,7 +285,7 @@ export default function WeatherGPTPage() {
   const [agentMode, setAgentMode] = useState<string>('auto');
 
   // Real-time WebSocket connection state
-  const { connectionState, isConnected } = useWeatherWebSocket(activeCity);
+  const { connectionState } = useWeatherWebSocket(activeCity);
   
   // Inline Location Switcher modal state
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -1589,7 +1587,7 @@ export default function WeatherGPTPage() {
             {/* Weather Analysis Command Bar Input */}
             <form 
               onSubmit={handleSubmit} 
-              className="relative flex items-center bg-sky-surface-elevated border border-sky-border shadow-md rounded-xl overflow-hidden transition-all focus-within:ring-2 focus-within:ring-sky-ai/30 focus-within:border-sky-ai/50 h-12"
+              className="relative flex items-center bg-sky-surface-elevated border border-sky-border shadow-md rounded-xl overflow-hidden transition-all focus-within:ring-2 focus-within:ring-sky-ai/30 h-12"
             >
               <div className="flex items-center justify-center pl-3.5 pr-1 text-sky-text-secondary">
                  <CurrentModeIcon className={cn("h-4 w-4", currentModeConfig.badgeColor.replace('bg-', 'text-').split(' ')[1] || 'text-sky-ai')} />

@@ -118,7 +118,7 @@ npm run dev
 
 ## 🧪 Testing & Code Quality
 
-SkyCast includes a comprehensive test suite with 230+ automated tests covering all agents, tools, weather resolution, temporal grounding, and data routing:
+SkyCast includes a comprehensive test suite with 290+ automated tests covering all agents, tools, weather resolution, temporal grounding, and data routing:
 
 ```bash
 # Run backend pytest suite:
@@ -127,6 +127,15 @@ pytest backend/tests/ -v
 # Run frontend linter:
 npm run lint
 ```
+
+---
+
+## 🛡️ Repository Rules & Documentation
+
+- **[AGENTS.md](file:///c:/Users/Manthan/OneDrive/Desktop/New%20folder/weather-app/AGENTS.md)**: Repository engineering standards, secrets protection, and code-sync rules.
+- **[CONTRIBUTING.md](file:///c:/Users/Manthan/OneDrive/Desktop/New%20folder/weather-app/CONTRIBUTING.md)**: Developer guidelines, pull request procedures, and code quality expectations.
+- **[docs/deployment.md](file:///c:/Users/Manthan/OneDrive/Desktop/New%20folder/weather-app/docs/deployment.md)**: Railway & Vercel cloud deployment architecture and environment configurations.
+- **[docs/weathergpt-agent.md](file:///c:/Users/Manthan/OneDrive/Desktop/New%20folder/weather-app/docs/weathergpt-agent.md)**: Deep dive into the WeatherGPT multi-agent architecture and deterministic tool execution.
 
 ---
 
@@ -139,4 +148,5 @@ Contributions are welcome! Please read [CONTRIBUTING.md](file:///c:/Users/Mantha
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](file:///c:/Users/Manthan/OneDrive/Desktop/New%20folder/weather-app/LICENSE) file for details.
+
 

@@ -124,7 +124,7 @@ export function AppLayout() {
 
   // Subscribe to query cache to get real-time temp/stale status for the header
   useEffect(() => {
-    const observer = new (queryClient as any).getQueryCache().subscribe((event: any) => {
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
       if (
         event.query.queryKey[0] === 'weather' && 
         event.query.queryKey[1] === 'dashboard' && 
@@ -139,7 +139,7 @@ export function AppLayout() {
     const initialData = queryClient.getQueryData(['weather', 'dashboard', activeCity]);
     if (initialData) setDashboardData(initialData);
 
-    return () => observer();
+    return () => unsubscribe();
   }, [activeCity, queryClient]);
 
   const isStale = dashboardData?.meta?.is_stale === true;

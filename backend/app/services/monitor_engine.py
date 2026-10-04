@@ -448,7 +448,7 @@ class MonitorEvaluationEngine:
         Eliminates duplicate N-monitors-to-N-requests overhead.
         FAILURE PRESERVATION: If weather data is unavailable, preserves existing alert states.
         """
-        if not await check_db_health():
+        if db_session is None and not await check_db_health():
             logger.warning("[MONITOR] Database health check failed. Skipping evaluation for %s", location)
             return {"status": "db_unavailable", "evaluated": 0}
 

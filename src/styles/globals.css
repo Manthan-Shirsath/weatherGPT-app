@@ -155,9 +155,11 @@
   .mode-accent-auto    { --mode-accent: #8b5cf6; --mode-accent-light: rgba(139, 92, 246, 0.12); }
   .mode-accent-general { --mode-accent: #3b82f6; --mode-accent-light: rgba(59, 130, 246, 0.12);  }
   .mode-accent-agriculture { --mode-accent: #10b981; --mode-accent-light: rgba(16, 185, 129, 0.12); }
-  .mode-accent-disaster { --mode-accent: #f59e0b; --mode-accent-light: rgba(245, 158, 11, 0.12); }
-  .mode-accent-aviation { --mode-accent: #06b6d4; --mode-accent-light: rgba(6, 182, 212, 0.12);  }
-  .mode-accent-marine   { --mode-accent: #14b8a6; --mode-accent-light: rgba(20, 184, 166, 0.12); }
+  .mode-accent-disaster    { --mode-accent: #f59e0b; --mode-accent-light: rgba(245, 158, 11, 0.12); }
+  .mode-accent-aviation    { --mode-accent: #06b6d4; --mode-accent-light: rgba(6, 182, 212, 0.12);  }
+  .mode-accent-marine      { --mode-accent: #14b8a6; --mode-accent-light: rgba(20, 184, 166, 0.12); }
+  .mode-accent-research    { --mode-accent: #6366f1; --mode-accent-light: rgba(99, 102, 241, 0.12); }
+  .mode-accent-urban       { --mode-accent: #f97316; --mode-accent-light: rgba(249, 115, 22, 0.12);  }
 
   .mode-header-stripe {
     border-top: 3px solid var(--mode-accent);
