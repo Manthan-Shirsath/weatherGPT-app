@@ -1,4 +1,4 @@
-# 🌤️ SkyCast - AI Weather Intelligence Platform
+# 🌤️ weatherGPT - AI Weather Intelligence Platform
 
 [![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
@@ -8,7 +8,7 @@
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**SkyCast** is a production-ready, platform-independent weather intelligence platform combining real-time global meteorology, interactive radar maps, methodology-diverse forecast intelligence (NWP + AI/ML ensembles), autonomous multi-mode AI reasoning via **WeatherGPT**, and official IMD CAP disaster alert integration.
+**weatherGPT** is a production-ready, platform-independent weather intelligence platform combining real-time global meteorology, interactive radar maps, methodology-diverse forecast intelligence (NWP + AI/ML ensembles), autonomous multi-mode AI reasoning via **WeatherGPT**, and IMD CAP disaster alert integration.
 
 ---
 
@@ -61,8 +61,8 @@ SkyCast is fully containerized. You do not need Python, Node.js, PostgreSQL, or 
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/Manthan-Shirsath/skycast-weather-app.git
-cd skycast-weather-app
+git clone https://github.com/Manthan-Shirsath/weathergpt-web-app.git
+cd weathergpt-web-app
 ```
 
 ### 2. Configure Environment Variables
