@@ -1,7 +1,8 @@
 {
-  "name": "skycast-frontend",
+  "name": "weathergpt-web-app",
   "private": true,
   "version": "1.0.0",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently -n \"backend,frontend\" -c \"blue,cyan\" \"python backend/main.py\" \"vite\"",

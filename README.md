@@ -6,7 +6,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 **weatherGPT** is a production-ready, platform-independent weather intelligence platform combining real-time global meteorology, interactive radar maps, methodology-diverse forecast intelligence (NWP + AI/ML ensembles), autonomous multi-mode AI reasoning via **WeatherGPT**, and IMD CAP disaster alert integration.
 
@@ -147,6 +147,6 @@ Contributions are welcome! Please read [CONTRIBUTING.md](file:///c:/Users/Mantha
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](file:///c:/Users/Manthan/OneDrive/Desktop/New%20folder/weather-app/LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](file:///c:/Users/Manthan/OneDrive/Desktop/New%20folder/weather-app/LICENSE) file for details.
 
 
